@@ -1,8 +1,9 @@
 package builder
 
 import (
-	"github.com/louvri/gosl/transformer"
 	"time"
+
+	"github.com/louvri/gosl/transformer"
 )
 
 type QueryParams struct {
@@ -16,6 +17,7 @@ type QueryParams struct {
 	Orderby      map[string]interface{}
 	Groupby      []string
 	ColumnFilter []string
+	Priority     []string
 	Merge        *Merge
 	BetweenTime  map[string][]time.Time
 	IsDistinct   bool

@@ -22,9 +22,11 @@ type Builder interface {
 	RightJoin(table string, on string, alias ...string) Builder
 	Statement(stmt string, values []interface{}) Builder
 	In(in map[string]interface{}) Builder
+	InSingleProp(prop string, data interface{}) Builder
 	Exists(other Builder, condition Condition) Builder
 	Alias(name string) string
 	Compare(conditions []Condition) Builder
+	CompareSingleProp(condition Condition) Builder
 	NotEqual(column string, value interface{}) Builder
 	Equal(column string, value interface{}) Builder
 	BetweenTime(column string, from, to time.Time) Builder
@@ -171,6 +173,7 @@ func (b *builder) Statement(stmt string, values []interface{}) Builder {
 	b.values = append(b.values, values...)
 	return b
 }
+
 func (b *builder) In(in map[string]interface{}) Builder {
 	if b.whereStatement.Len() > 0 {
 		b.whereStatement.WriteString(b.operator[0])
@@ -189,6 +192,19 @@ func (b *builder) In(in map[string]interface{}) Builder {
 	}
 	return b
 }
+
+func (b *builder) InSingleProp(prop string, data interface{}) Builder {
+	if b.whereStatement.Len() > 0 {
+		b.whereStatement.WriteString(b.operator[0])
+		b.operator = b.operator[1:]
+	}
+	if query, values := buildInStatement(b.ref, prop, data); len(query) > 0 {
+		b.whereStatement.WriteString(query)
+		b.values = append(b.values, values...)
+	}
+	return b
+}
+
 func (b *builder) Exists(other Builder, condition Condition) Builder {
 	if b.whereStatement.Len() > 0 {
 		b.whereStatement.WriteString(b.operator[0])
@@ -222,6 +238,25 @@ func (b *builder) Compare(conditions []Condition) Builder {
 		if value != nil {
 			b.values = append(b.values, value)
 		}
+	}
+	if compStatement.Len() > 0 {
+		if b.whereStatement.Len() > 0 {
+			b.whereStatement.WriteString(b.operator[0])
+			b.operator = b.operator[1:]
+		}
+		b.whereStatement.WriteString(compStatement.String())
+	}
+	return b
+}
+
+func (b *builder) CompareSingleProp(condition Condition) Builder {
+	var compStatement strings.Builder
+	stmt, value := buildConditionStatement(condition)
+	if len(stmt) > 0 {
+		compStatement.WriteString(stmt)
+	}
+	if value != nil {
+		b.values = append(b.values, value)
 	}
 	if compStatement.Len() > 0 {
 		if b.whereStatement.Len() > 0 {
