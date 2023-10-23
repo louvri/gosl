@@ -445,10 +445,20 @@ func (b *builder) Build() (string, []interface{}) {
 				if updates.Len() > 0 {
 					updates.WriteString(",")
 				}
-				updates.WriteString(key)
-				updates.WriteString("=")
-				updates.WriteString("?")
-				values = append(values, value)
+				isAStatement := false
+				if tmp, ok := value.(string); ok {
+					isAStatement = strings.Contains(tmp, "`")
+				}
+				if isAStatement {
+					updates.WriteString(key)
+					updates.WriteString("=")
+					updates.WriteString(value.(string))
+				} else {
+					updates.WriteString(key)
+					updates.WriteString("=")
+					updates.WriteString("?")
+					values = append(values, value)
+				}
 			}
 		}
 		query.WriteString("UPDATE ")
