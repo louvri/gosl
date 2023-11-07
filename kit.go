@@ -49,13 +49,17 @@ func RunInTransaction(ctx context.Context, fn func(ctx context.Context) error) e
 				value := values.Field(i)
 				value = reflect.NewAt(value.Type(), unsafe.Pointer(value.UnsafeAddr())).Elem()
 				field := keys.Field(i)
-				if field.Name == "Context" {
-					injectTx(value.Interface())
-				} else if field.Name == "key" {
+				if field.Name == "key" {
 					currKey = value.Interface()
-				} else {
+				} else if field.Name != "Context" {
 					q, ok := value.Interface().(*Queryable)
 					if !ok {
+						if tmp := value.Interface(); tmp != nil {
+							kind := reflect.TypeOf(tmp).Kind()
+							if kind == reflect.Pointer {
+								injectTx(tmp)
+							}
+						}
 						continue
 					}
 					if nil == q.db {
@@ -77,6 +81,7 @@ func RunInTransaction(ctx context.Context, fn func(ctx context.Context) error) e
 				}
 			}
 		}
+
 	}
 	if !ok {
 		callCount = 0
