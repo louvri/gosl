@@ -16,6 +16,10 @@ func ResolveColumnName(column string) string {
 	var prev rune
 	caser := cases.Title(language.Und, cases.NoLower)
 	column = caser.String(column)
+	containsDot := strings.Contains(column, ".")
+	if !containsDot {
+		builder.WriteRune('`')
+	}
 	for _, curr := range column {
 		if prev >= 'a' && prev <= 'z' && curr >= 'A' && curr <= 'Z' {
 			builder.WriteString("_")
@@ -23,9 +27,12 @@ func ResolveColumnName(column string) string {
 		} else {
 			builder.WriteRune(unicode.ToLower(curr))
 		}
+		if curr == '.' {
+			builder.WriteRune('`')
+		}
 		prev = curr
 	}
-
+	builder.WriteRune('`')
 	return builder.String()
 }
 func ResolveColumnNameCollections(columns []string) []string {
