@@ -13,9 +13,13 @@ func buildInStatement(obj interface{}, prop string, data interface{}) (string, [
 	if n <= 0 {
 		return "", nil
 	}
-	s.WriteString("`")
-	s.WriteString(prop)
-	s.WriteString("`")
+	if !strings.Contains(prop, "`") {
+		s.WriteString("`")
+		s.WriteString(prop)
+		s.WriteString("`")
+	} else {
+		s.WriteString(prop)
+	}
 	s.WriteString(" IN (")
 	for i := 0; i < n; i++ {
 		if i > 0 {
@@ -49,26 +53,11 @@ func buildConditionStatement(condition Condition) (string, interface{}) {
 
 	s.WriteString(condition.Operator)
 	s.WriteString(" ")
-	if condition.OtherKey != "" && !strings.Contains(condition.OtherKey, "`") {
-		tokens := strings.Split(condition.OtherKey, ".")
-		if len(tokens) == 2 {
-			s.WriteString(tokens[0])
-			s.WriteString(".")
-			s.WriteString("`")
-			s.WriteString(tokens[1])
-			s.WriteString("`")
-		} else {
-			s.WriteString("`")
-			s.WriteString(condition.OtherKey)
-			s.WriteString("`")
-		}
-		return s.String(), nil
-	} else {
-		s.WriteString(condition.OtherKey)
-	}
-
 	if condition.Value == nil || condition.Value == "null" {
 		s.WriteString("null")
+		return s.String(), nil
+	} else if tmp, ok := condition.Value.(string); ok && strings.Contains(tmp, "`") {
+		s.WriteString(tmp)
 		return s.String(), nil
 	} else {
 		s.WriteString("?")
