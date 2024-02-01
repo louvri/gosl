@@ -505,9 +505,14 @@ func (b *builder) Build() (string, []interface{}) {
 		}
 		if len(temp) > 0 {
 			for key, value := range temp {
+				if updates.Len() > 0 {
+					updates.WriteString(",")
+				}
 				updates.WriteString(key)
 				updates.WriteString("=")
-				updates.WriteString(value)
+				updates.WriteString("?")
+				b.values = append(b.values, value)
+
 			}
 		}
 		query.WriteString("INSERT INTO ")
