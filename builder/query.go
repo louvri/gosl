@@ -475,20 +475,25 @@ func (b *builder) Build() (string, []interface{}) {
 	} else if len(b.upsert) > 0 {
 		var columns strings.Builder
 		var placeholder strings.Builder
+		temp := make(map[string]string)
 		for key, value := range b.upsert {
 			if value != nil {
-				if columns.Len() > 0 {
-					columns.WriteString(",")
-					placeholder.WriteString(",")
+				if str, ok := value.(string); ok && !strings.Contains(str, "`") {
+					if columns.Len() > 0 {
+						columns.WriteString(",")
+						placeholder.WriteString(",")
+					}
+					columns.WriteString(key)
+					placeholder.WriteString("?")
+					b.values = append(b.values, value)
+				} else {
+					temp[key] = value.(string)
 				}
-				columns.WriteString(key)
-				placeholder.WriteString("?")
-				b.values = append(b.values, value)
 			}
 		}
 		var updates strings.Builder
 		for key, value := range b.upsert {
-			if value != nil {
+			if value != nil && temp[key] == "" {
 				if updates.Len() > 0 {
 					updates.WriteString(",")
 				}
@@ -496,6 +501,13 @@ func (b *builder) Build() (string, []interface{}) {
 				updates.WriteString("=")
 				updates.WriteString("?")
 				b.values = append(b.values, value)
+			}
+		}
+		if len(temp) > 0 {
+			for key, value := range temp {
+				updates.WriteString(key)
+				updates.WriteString("=")
+				updates.WriteString(value)
 			}
 		}
 		query.WriteString("INSERT INTO ")
