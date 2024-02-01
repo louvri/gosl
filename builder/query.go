@@ -489,7 +489,7 @@ func (b *builder) Build() (string, []interface{}) {
 					placeholder.WriteString("?")
 					b.values = append(b.values, value)
 				} else {
-					number, _ := regexp.Compile(`[0-9]+$`)
+					number, _ := regexp.Compile(`[a-zA-Z0-9 .]*$`)
 					numbers := number.FindAllString(value.(string), -1)
 					if len(numbers) > 0 {
 						if columns.Len() > 0 {

@@ -75,7 +75,7 @@ func TestJoin(t *testing.T) {
 func TestUpsert(t *testing.T) {
 	query, _ := New().From("`hello_world`", "a").Upsert(map[string]interface{}{
 		"`value`": "name",
-		"`key`":   "`key` + 1",
+		"`key`":   "`key` + 1.2",
 	}).Build()
 	if len(query) == 0 {
 		t.Fatal("query is empty")
