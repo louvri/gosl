@@ -522,7 +522,9 @@ func (b *builder) Build() (string, []interface{}) {
 				}
 				updates.WriteString(key)
 				updates.WriteString("=")
-				updates.WriteString(value)
+				updates.WriteString("?")
+				b.values = append(b.values, value)
+
 			}
 		}
 		query.WriteString("INSERT INTO ")
