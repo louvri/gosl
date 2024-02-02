@@ -479,7 +479,6 @@ func (b *builder) Build() (string, []interface{}) {
 		temp := make(map[string]string)
 		for key, value := range b.upsert {
 			if value != nil {
-
 				if str, ok := value.(string); ok && !strings.Contains(str, "`") {
 					if columns.Len() > 0 {
 						columns.WriteString(",")
@@ -489,16 +488,21 @@ func (b *builder) Build() (string, []interface{}) {
 					placeholder.WriteString("?")
 					b.values = append(b.values, value)
 				} else {
-					number, _ := regexp.Compile(`[a-zA-Z0-9 .]*$`)
-					numbers := number.FindAllString(value.(string), -1)
+					strValue := value.(string)
+					if columns.Len() > 0 {
+						columns.WriteString(",")
+						placeholder.WriteString(",")
+					}
+					columns.WriteString(key)
+					number, _ := regexp.Compile(`[0-9]*(\.\d*)$`)
+
+					numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
 					if len(numbers) > 0 {
-						if columns.Len() > 0 {
-							columns.WriteString(",")
-							placeholder.WriteString(",")
-						}
-						columns.WriteString(key)
 						placeholder.WriteString(numbers[0])
-						temp[key] = value.(string)
+						temp[key] = strValue
+					} else {
+						temp[key] = strValue
+						placeholder.WriteString(temp[key])
 					}
 				}
 			}
