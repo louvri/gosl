@@ -6,11 +6,7 @@ import (
 )
 
 func TestBuildInStatement(t *testing.T) {
-	type test struct {
-		AB string `json:"ab" db:"a_b"`
-		CD string `json:"cd" db:"c_d"`
-	}
-	result, values := buildInStatement(&test{}, "AB", []string{"satu", "dua"})
+	result, values := buildInStatement("AB", []string{"satu", "dua"})
 	val0 := values[0].(string)
 	val1 := values[1].(string)
 	if val0 != "satu" || val1 != "dua" {

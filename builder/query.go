@@ -53,7 +53,6 @@ func New() Builder {
 }
 
 type builder struct {
-	ref             interface{}
 	operator        []string
 	source          []map[string]string
 	selectStatement strings.Builder
@@ -182,7 +181,7 @@ func (b *builder) In(in map[string]interface{}) Builder {
 	}
 	first := true
 	for key, value := range in {
-		if query, values := buildInStatement(b.ref, key, value); len(query) > 0 {
+		if query, values := buildInStatement(key, value); len(query) > 0 {
 			if !first {
 				b.whereStatement.WriteString(" AND ")
 			}
@@ -199,7 +198,7 @@ func (b *builder) InSingleProp(prop string, data interface{}) Builder {
 		b.whereStatement.WriteString(b.operator[0])
 		b.operator = b.operator[1:]
 	}
-	if query, values := buildInStatement(b.ref, prop, data); len(query) > 0 {
+	if query, values := buildInStatement(prop, data); len(query) > 0 {
 		b.whereStatement.WriteString(query)
 		b.values = append(b.values, values...)
 	}
@@ -513,10 +512,20 @@ func (b *builder) Build() (string, []interface{}) {
 				if updates.Len() > 0 {
 					updates.WriteString(",")
 				}
-				updates.WriteString(key)
-				updates.WriteString("=")
-				updates.WriteString("?")
-				b.values = append(b.values, value)
+				isAStatement := false
+				if tmp, ok := value.(string); ok {
+					isAStatement = strings.Contains(tmp, "`")
+				}
+				if isAStatement {
+					updates.WriteString(key)
+					updates.WriteString("=")
+					updates.WriteString(value.(string))
+				} else {
+					updates.WriteString(key)
+					updates.WriteString("=")
+					updates.WriteString("?")
+					b.values = append(b.values, value)
+				}
 			}
 		}
 		if len(temp) > 0 {
@@ -524,11 +533,18 @@ func (b *builder) Build() (string, []interface{}) {
 				if updates.Len() > 0 {
 					updates.WriteString(",")
 				}
-				updates.WriteString(key)
-				updates.WriteString("=")
-				updates.WriteString("?")
-				b.values = append(b.values, value)
-
+				isAStatement := false
+				isAStatement = strings.Contains(value, "`")
+				if isAStatement {
+					updates.WriteString(key)
+					updates.WriteString("=")
+					updates.WriteString(value)
+				} else {
+					updates.WriteString(key)
+					updates.WriteString("=")
+					updates.WriteString("?")
+					b.values = append(b.values, value)
+				}
 			}
 		}
 		query.WriteString("INSERT INTO ")

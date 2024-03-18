@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func buildInStatement(obj interface{}, prop string, data interface{}) (string, []interface{}) {
+func buildInStatement(prop string, data interface{}) (string, []interface{}) {
 	var s strings.Builder
 	var values []interface{}
 	reflectItems := reflect.ValueOf(data)
