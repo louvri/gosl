@@ -494,11 +494,10 @@ func (b *builder) Build() (string, []interface{}) {
 					}
 					columns.WriteString(key)
 					number, _ := regexp.Compile(`[0-9]*(\.\d*)$`)
-
 					numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
 					if len(numbers) > 0 {
-						placeholder.WriteString(numbers[0])
-						temp[key] = strValue
+						placeholder.WriteString("?")
+						b.values = append(b.values, strings.Join(numbers, ""))
 					} else {
 						temp[key] = strValue
 						placeholder.WriteString(temp[key])
