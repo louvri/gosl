@@ -493,7 +493,7 @@ func (b *builder) Build() (string, []interface{}) {
 						placeholder.WriteString(",")
 					}
 					columns.WriteString(key)
-					number, _ := regexp.Compile(`[0-9]*(\.\d*)$`)
+					number, _ := regexp.Compile(`-?\d+(\.\d+)?`)
 					numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
 					if len(numbers) > 0 {
 						placeholder.WriteString("?")
