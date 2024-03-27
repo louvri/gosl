@@ -478,7 +478,7 @@ func (b *builder) Build() (string, []interface{}) {
 		temp := make(map[string]string)
 		for key, value := range b.upsert {
 			if value != nil {
-				if str, ok := value.(string); ok && !strings.Contains(str, "`") {
+				if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
 					if columns.Len() > 0 {
 						columns.WriteString(",")
 						placeholder.WriteString(",")
