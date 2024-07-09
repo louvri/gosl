@@ -34,7 +34,7 @@ func buildInStatement(prop string, data interface{}) (string, []interface{}) {
 
 func buildConditionStatement(condition Condition) (string, interface{}) {
 	var s strings.Builder
-	if !strings.Contains(condition.Key, "`") {
+	if !strings.Contains(condition.Key, "`") && !strings.Contains(condition.Key, "'$.") {
 		tokens := strings.Split(condition.Key, ".")
 		if len(tokens) == 2 {
 			s.WriteString(tokens[0])
