@@ -78,7 +78,8 @@ const (
 )
 
 type Merge struct {
-	Type      transformer.Type
-	Track     string //identifier to check duplicates - or condition
-	Operation MergeOperation
+	Type           transformer.Type
+	Track          string //identifier to check duplicates - or condition
+	Operation      MergeOperation
+	ShouldContinue func(data interface{}) bool
 }
