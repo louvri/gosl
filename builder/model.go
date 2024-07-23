@@ -14,7 +14,7 @@ type QueryParams struct {
 	Next         int64
 	Page         int
 	Size         int
-	Orderby      map[string]interface{}
+	Orderby      []OrderBy
 	Groupby      []string
 	ColumnFilter []string
 	Priority     []string
@@ -35,9 +35,13 @@ func (q *QueryParams) Clone() QueryParams {
 	conditions := make([]Condition, 0)
 	conditions = append(conditions, q.Conditions...)
 
-	orderby := make(map[string]interface{})
-	for key, value := range q.Orderby {
-		orderby[key] = value
+	orderby := make([]OrderBy, 0)
+	for _, item := range q.Orderby {
+		orderby = append(orderby, OrderBy{
+			Column:    item.Column,
+			Direction: item.Direction,
+			Fields:    item.Fields,
+		})
 	}
 	groupby := make([]string, 0)
 	groupby = append(groupby, q.Groupby...)
@@ -82,4 +86,10 @@ type Merge struct {
 	Track          string //identifier to check duplicates - or condition
 	Operation      MergeOperation
 	ShouldContinue func(data interface{}) bool
+}
+
+type OrderBy struct {
+	Column    string
+	Direction string
+	Fields    []string
 }

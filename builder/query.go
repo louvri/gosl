@@ -29,11 +29,10 @@ type Builder interface {
 	NotEqual(column string, value interface{}) Builder
 	Equal(column string, value interface{}) Builder
 	BetweenTime(column string, from, to time.Time) Builder
-	Next(id int64) Builder
 	Page(index int) Builder
 	Size(n int) Builder
-	Order(column, direction string) Builder
-	Orders(orders map[string]interface{}) Builder
+	Order(order OrderBy) Builder
+	Orders(orders []OrderBy) Builder
 	Group(column string) Builder
 	Groups(column []string) Builder
 	And() Builder
@@ -45,9 +44,7 @@ type Builder interface {
 }
 
 func New() Builder {
-	return &builder{
-		orderMap: make(map[string]string),
-	}
+	return &builder{}
 }
 
 type builder struct {
@@ -57,9 +54,7 @@ type builder struct {
 	whereStatement  strings.Builder
 	orderStatement  strings.Builder
 	groupStatement  strings.Builder
-	orderMap        map[string]string
 	values          []interface{}
-	next            int64
 	page            int
 	size            int
 	explain         bool
@@ -268,10 +263,6 @@ func (b *builder) BetweenTime(column string, from, to time.Time) Builder {
 	b.values = append(b.values, to.Format(DateTimeFormat))
 	return b
 }
-func (b *builder) Next(id int64) Builder {
-	b.next = id
-	return b
-}
 func (b *builder) Page(index int) Builder {
 	b.page = index - 1
 	return b
@@ -280,48 +271,26 @@ func (b *builder) Size(n int) Builder {
 	b.size = n
 	return b
 }
-func (b *builder) Order(column, direction string) Builder {
+func (b *builder) Order(order OrderBy) Builder {
 	if b.orderStatement.Len() > 0 {
 		b.orderStatement.WriteString(",")
 	}
-	b.orderStatement.WriteString(column)
-	b.orderStatement.WriteString(" ")
-	b.orderStatement.WriteString(direction)
+	if len(order.Fields) > 0 {
+		b.orderStatement.WriteString("Field(")
+		b.orderStatement.WriteString(order.Column)
+		b.orderStatement.WriteString(strings.Join(order.Fields, ","))
+		b.orderStatement.WriteString(")")
+	} else {
+		b.orderStatement.WriteString(order.Column)
+		b.orderStatement.WriteString(" ")
+		b.orderStatement.WriteString(order.Direction)
+	}
 	return b
 }
-func (b *builder) Orders(orders map[string]interface{}) Builder {
-	priorityOrdersMap := make(map[int][]string)
-	var orderByStatement strings.Builder
-	var direction string
-	var priority int
-	idx := 1
-	for column, rule := range orders {
-		if tmp, ok := rule.(map[string]interface{}); ok {
-			priority = tmp["priority"].(int)
-			direction = tmp["direction"].(string)
-		} else {
-			priority = idx
-			direction = rule.(string)
-		}
-		priorityOrdersMap[priority] = []string{column, direction}
-		b.orderMap[column] = direction
-		idx++
+func (b *builder) Orders(orders []OrderBy) Builder {
+	for _, order := range orders {
+		b.Order(order)
 	}
-	for orderIdx := 1; orderIdx <= len(priorityOrdersMap); orderIdx++ {
-		orderColumn := priorityOrdersMap[orderIdx][0]
-		orderDirection := priorityOrdersMap[orderIdx][1]
-		if orderByStatement.Len() > 0 {
-			orderByStatement.WriteString(",")
-		}
-		orderByStatement.WriteString(orderColumn)
-		orderByStatement.WriteString(" ")
-		orderByStatement.WriteString(orderDirection)
-	}
-
-	if orderByStatement.Len() > 0 {
-		b.orderStatement.WriteString(orderByStatement.String())
-	}
-
 	return b
 }
 func (b *builder) Group(column string) Builder {
@@ -558,19 +527,6 @@ func (b *builder) Build() (string, []interface{}) {
 			query.WriteString(" ")
 			query.WriteString("WHERE ")
 			query.WriteString(b.whereStatement.String())
-			if b.next != 0 {
-				query.WriteString(" AND ")
-				direction := "asc"
-				for _, value := range b.orderMap {
-					direction = value
-					break
-				}
-				if direction == "asc" {
-					query.WriteString(fmt.Sprintf(" `id` > %d", b.next))
-				} else {
-					query.WriteString(fmt.Sprintf(" `id` < %d", b.next))
-				}
-			}
 		}
 		if b.groupStatement.Len() > 0 {
 			query.WriteString(" ")
@@ -586,7 +542,7 @@ func (b *builder) Build() (string, []interface{}) {
 			query.WriteString(" ")
 			query.WriteString(fmt.Sprintf("LIMIT %d ", b.size))
 		}
-		if b.page != 0 && b.next == 0 {
+		if b.page != 0 {
 			query.WriteString(" ")
 			query.WriteString(fmt.Sprintf("OFFSET %d ", b.page*b.size))
 		}
