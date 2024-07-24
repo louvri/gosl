@@ -11,7 +11,7 @@ type QueryParams struct {
 	In           map[string]interface{}
 	Notin        map[string]interface{}
 	Conditions   []Condition
-	Next         int64
+	Next         *Next
 	Page         int
 	Size         int
 	Orderby      []OrderBy
@@ -92,4 +92,10 @@ type OrderBy struct {
 	Column    string
 	Direction string
 	Fields    []string
+}
+
+type Next struct {
+	Column    string
+	Direction string
+	Value     interface{}
 }
