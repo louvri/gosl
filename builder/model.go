@@ -7,20 +7,21 @@ import (
 )
 
 type QueryParams struct {
-	Object       interface{}
-	In           map[string]interface{}
-	Notin        map[string]interface{}
-	Conditions   []Condition
-	Next         *Next
-	Page         int
-	Size         int
-	Orderby      []OrderBy
-	Groupby      []string
-	ColumnFilter []string
-	Priority     []string
-	Merge        *Merge
-	BetweenTime  map[string][]time.Time
-	IsDistinct   bool
+	Object         interface{}
+	In             map[string]interface{}
+	Notin          map[string]interface{}
+	Conditions     []Condition
+	Next           *Next
+	Page           int
+	Size           int
+	Orderby        []OrderBy
+	Groupby        []string
+	ColumnFilter   []string
+	Priority       []string
+	Merge          *Merge
+	BetweenTime    map[string][]time.Time
+	IsDistinct     bool
+	ShouldContinue func(data interface{}) bool
 }
 
 func (q *QueryParams) Clone() QueryParams {
