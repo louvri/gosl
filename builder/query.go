@@ -264,11 +264,16 @@ func (b *builder) BetweenTime(column string, from, to time.Time) Builder {
 	return b
 }
 func (b *builder) Page(index int) Builder {
-	b.page = index - 1
+	if index > 0 {
+		b.page = index - 1
+	}
+
 	return b
 }
 func (b *builder) Size(n int) Builder {
-	b.size = n
+	if n > 0 {
+		b.size = n
+	}
 	return b
 }
 func (b *builder) Order(order OrderBy) Builder {
