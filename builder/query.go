@@ -370,6 +370,10 @@ func (b *builder) Build() (string, []interface{}) {
 				placeholder.WriteString("?")
 				b.values = append(b.values, value)
 			} else {
+				if columns.Len() > 0 {
+					columns.WriteString(",")
+					placeholder.WriteString(",")
+				}
 				placeholder.WriteString(key)
 				placeholder.WriteString("=")
 				placeholder.WriteString("NULL")
@@ -405,6 +409,9 @@ func (b *builder) Build() (string, []interface{}) {
 					values = append(values, value)
 				}
 			} else {
+				if updates.Len() > 0 {
+					updates.WriteString(",")
+				}
 				updates.WriteString(key)
 				updates.WriteString("=")
 				updates.WriteString("NULL")
@@ -451,6 +458,10 @@ func (b *builder) Build() (string, []interface{}) {
 					}
 				}
 			} else {
+				if columns.Len() > 0 {
+					columns.WriteString(",")
+					insert.WriteString(",")
+				}
 				columns.WriteString(key)
 				insert.WriteString("NULL")
 			}
@@ -476,6 +487,9 @@ func (b *builder) Build() (string, []interface{}) {
 					b.values = append(b.values, value)
 				}
 			} else {
+				if updates.Len() > 0 {
+					updates.WriteString(",")
+				}
 				updates.WriteString(key)
 				updates.WriteString("=")
 				updates.WriteString("NULL")
