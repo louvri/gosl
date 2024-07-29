@@ -16,6 +16,9 @@ func ResolveColumnName(column string) string {
 	var prev rune
 	caser := cases.Title(language.Und, cases.NoLower)
 	column = caser.String(column)
+	if strings.Contains(column, "`") {
+		return column
+	}
 	containsDot := strings.Contains(column, ".")
 	if !containsDot {
 		builder.WriteRune('`')

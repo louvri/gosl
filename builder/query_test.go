@@ -85,4 +85,12 @@ func TestUpsert(t *testing.T) {
 	if len(query) == 0 {
 		t.Fatal("query is empty")
 	}
+	query, values = New().From("`hello_world`", "b").Upsert(map[string]interface{}{
+		"value": nil,
+		"`key`": "baru",
+	}).Build()
+	t.Log(query, values)
+	if len(query) == 0 {
+		t.Fatal("query is empty")
+	}
 }
