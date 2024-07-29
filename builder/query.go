@@ -428,6 +428,10 @@ func (b *builder) Build() (string, []interface{}) {
 				columns.WriteString(key)
 				placeholder.WriteString("?")
 				b.values = append(b.values, value)
+			} else {
+				placeholder.WriteString(key)
+				placeholder.WriteString("=")
+				placeholder.WriteString("NULL")
 			}
 		}
 		query.WriteString("INSERT INTO ")
@@ -459,6 +463,10 @@ func (b *builder) Build() (string, []interface{}) {
 					updates.WriteString("?")
 					values = append(values, value)
 				}
+			} else {
+				updates.WriteString(key)
+				updates.WriteString("=")
+				updates.WriteString("NULL")
 			}
 		}
 		query.WriteString("UPDATE ")
@@ -474,40 +482,41 @@ func (b *builder) Build() (string, []interface{}) {
 		b.values = values
 	} else if len(b.upsert) > 0 {
 		var columns strings.Builder
-		var placeholder strings.Builder
-		temp := make(map[string]string)
+		var insert strings.Builder
 		for key, value := range b.upsert {
 			if value != nil {
 				if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
 					if columns.Len() > 0 {
 						columns.WriteString(",")
-						placeholder.WriteString(",")
+						insert.WriteString(",")
 					}
 					columns.WriteString(key)
-					placeholder.WriteString("?")
+					insert.WriteString("?")
 					b.values = append(b.values, value)
 				} else {
 					strValue := value.(string)
 					if columns.Len() > 0 {
 						columns.WriteString(",")
-						placeholder.WriteString(",")
+						insert.WriteString(",")
 					}
 					columns.WriteString(key)
 					number, _ := regexp.Compile(`-?\d+(\.\d+)?`)
 					numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
 					if len(numbers) > 0 {
-						placeholder.WriteString("?")
+						insert.WriteString("?")
 						b.values = append(b.values, strings.Join(numbers, ""))
 					} else {
-						temp[key] = strValue
-						placeholder.WriteString(temp[key])
+						insert.WriteString(strValue)
 					}
 				}
+			} else {
+				columns.WriteString(key)
+				insert.WriteString("NULL")
 			}
 		}
 		var updates strings.Builder
 		for key, value := range b.upsert {
-			if value != nil && temp[key] == "" {
+			if value != nil {
 				if updates.Len() > 0 {
 					updates.WriteString(",")
 				}
@@ -525,25 +534,10 @@ func (b *builder) Build() (string, []interface{}) {
 					updates.WriteString("?")
 					b.values = append(b.values, value)
 				}
-			}
-		}
-		if len(temp) > 0 {
-			for key, value := range temp {
-				if updates.Len() > 0 {
-					updates.WriteString(",")
-				}
-				isAStatement := false
-				isAStatement = strings.Contains(value, "`")
-				if isAStatement {
-					updates.WriteString(key)
-					updates.WriteString("=")
-					updates.WriteString(value)
-				} else {
-					updates.WriteString(key)
-					updates.WriteString("=")
-					updates.WriteString("?")
-					b.values = append(b.values, value)
-				}
+			} else {
+				updates.WriteString(key)
+				updates.WriteString("=")
+				updates.WriteString("NULL")
 			}
 		}
 		query.WriteString("INSERT INTO ")
@@ -551,7 +545,7 @@ func (b *builder) Build() (string, []interface{}) {
 		query.WriteString("(")
 		query.WriteString(columns.String())
 		query.WriteString(") VALUES (")
-		query.WriteString(placeholder.String())
+		query.WriteString(insert.String())
 		query.WriteString(") ON DUPLICATE KEY UPDATE ")
 		query.WriteString(updates.String())
 		query.WriteString(";")
