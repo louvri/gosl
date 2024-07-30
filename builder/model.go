@@ -78,8 +78,8 @@ func (q *QueryParams) Clone() QueryParams {
 type MergeOperation int
 
 const (
-	Identifier MergeOperation = iota
-	Statement
+	Statement MergeOperation = iota
+	Identifier
 )
 
 type Merge struct {
