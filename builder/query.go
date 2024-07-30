@@ -508,8 +508,10 @@ func (b *builder) Build() (string, []interface{}) {
 		query.WriteString("DELETE ")
 		query.WriteString("FROM ")
 		query.WriteString(b.source[0]["table"])
-		query.WriteString("WHERE ")
-		query.WriteString(b.whereStatement.String())
+		if b.whereStatement.Len() > 0 {
+			query.WriteString("WHERE ")
+			query.WriteString(b.whereStatement.String())
+		}
 	} else {
 		if b.explain {
 			query.WriteString("EXPLAIN ")
