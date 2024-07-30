@@ -369,7 +369,7 @@ func (b *builder) Build() (string, []interface{}) {
 				columns.WriteString(key)
 				placeholder.WriteString("?")
 				b.values = append(b.values, value)
-			} else {
+			} else if key != "" {
 				if columns.Len() > 0 {
 					columns.WriteString(",")
 					placeholder.WriteString(",")
@@ -408,7 +408,7 @@ func (b *builder) Build() (string, []interface{}) {
 					updates.WriteString("?")
 					values = append(values, value)
 				}
-			} else {
+			} else if key != "" {
 				if updates.Len() > 0 {
 					updates.WriteString(",")
 				}
@@ -457,7 +457,7 @@ func (b *builder) Build() (string, []interface{}) {
 						insert.WriteString(strValue)
 					}
 				}
-			} else {
+			} else if key != "" {
 				if columns.Len() > 0 {
 					columns.WriteString(",")
 					insert.WriteString(",")
@@ -486,7 +486,7 @@ func (b *builder) Build() (string, []interface{}) {
 					updates.WriteString("?")
 					b.values = append(b.values, value)
 				}
-			} else {
+			} else if key != "" {
 				if updates.Len() > 0 {
 					updates.WriteString(",")
 				}
