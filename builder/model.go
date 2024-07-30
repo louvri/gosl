@@ -2,26 +2,23 @@ package builder
 
 import (
 	"time"
-
-	"github.com/louvri/gosl/transformer"
 )
 
 type QueryParams struct {
-	Object         interface{}
-	In             map[string]interface{}
-	Notin          map[string]interface{}
-	Conditions     []Condition
-	Next           *Next
-	Page           int
-	Size           int
-	Orderby        []OrderBy
-	Groupby        []string
-	ColumnFilter   []string
-	Priority       []string
-	Merge          *Merge
-	BetweenTime    map[string][]time.Time
-	IsDistinct     bool
-	ShouldContinue func(data interface{}) bool
+	Object       interface{}
+	In           map[string]interface{}
+	Notin        map[string]interface{}
+	Conditions   []Condition
+	Next         *Next
+	Page         int
+	Size         int
+	Orderby      []OrderBy
+	Groupby      []string
+	ColumnFilter []string
+	Priority     []string
+	Merge        *Merge
+	BetweenTime  map[string][]time.Time
+	IsDistinct   bool
 }
 
 func (q *QueryParams) Clone() QueryParams {
@@ -68,9 +65,9 @@ func (q *QueryParams) Clone() QueryParams {
 		ColumnFilter: columnfilters,
 		BetweenTime:  betweentime,
 		Merge: &Merge{
-			Type:      q.Merge.Type,
-			Track:     q.Merge.Track,
-			Operation: q.Merge.Operation,
+			Track:          q.Merge.Track,
+			Operation:      q.Merge.Operation,
+			ShouldContinue: q.Merge.ShouldContinue,
 		},
 	}
 }
@@ -83,7 +80,6 @@ const (
 )
 
 type Merge struct {
-	Type           transformer.Type
 	Track          string //identifier to check duplicates - or condition
 	Operation      MergeOperation
 	ShouldContinue func(data interface{}) bool
