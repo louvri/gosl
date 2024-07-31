@@ -117,7 +117,6 @@ func TestRunInTransactionWithSwitchContext(t *testing.T) {
 			}
 			return nil
 		},
-		TKey,
 	)
 	if err != nil {
 		log.Fatal(err.Error())
