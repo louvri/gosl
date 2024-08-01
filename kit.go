@@ -2,45 +2,49 @@ package gosl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
 )
 
 type Kit interface {
-	RunInTransaction(ctx context.Context, handler func(ctx context.Context) error, others ...any) error
+	RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error
 	ContextSwitch(ctx context.Context, key interface{}) context.Context
 	ContextReset(ctx context.Context) context.Context
 }
 
 func New(ctx context.Context) Kit {
-	return &kit{
-		cache: ctx.Value(SQL_KEY),
-	}
+	return &kit{}
 }
 
 type kit struct {
-	cache interface{}
 }
 
-func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Context) error, others ...any) error {
+func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error {
 	var err error
 	trxs := make([]*sqlx.Tx, 0)
-	goslKeyExists := false
-	for _, key := range others {
-		if _, ok := key.(Gosl_Key); ok {
-			goslKeyExists = true
+	keys := make([]interface{}, 0)
+	cache := ctx.Value(CACHE_SQL_KEY)
+	if cache != nil {
+		for _, key := range cache.(map[interface{}]interface{}) {
+			keys = append(keys, key)
+		}
+	} else {
+		key := ctx.Value(SQL_KEY)
+		if key != nil {
+			keys = append(keys, key)
 		}
 	}
-	if !goslKeyExists {
-		others = append(others, SQL_KEY)
+	if len(keys) == 0 {
+		return errors.New("no active key present")
 	}
 	callCount, ok := ctx.Value(SYSTEM_STACK).(int)
 	if !ok {
 		callCount = 0
 	}
 	if callCount == 0 {
-		for _, key := range others {
+		for _, key := range keys {
 			if queryable, ok := ctx.Value(key).(*Queryable); ok {
 				var tx *sqlx.Tx
 				tx, err = queryable.db.Beginx()
@@ -77,11 +81,33 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 }
 
 func (k *kit) ContextSwitch(ctx context.Context, key interface{}) context.Context {
-	ctx = context.WithValue(ctx, SQL_KEY, k.cache)
-	toBeAssigned := ctx.Value(key)
-	return context.WithValue(ctx, SQL_KEY, toBeAssigned)
+	curr := ctx.Value(key)
+	if cacheKeys := ctx.Value(CACHE_SQL_KEY); cacheKeys == nil {
+		keys := make(map[interface{}]interface{})
+		keys[key] = curr
+		ctx = context.WithValue(ctx, CACHE_SQL_KEY, keys)
+	} else {
+		keys := cacheKeys.(map[interface{}]interface{})
+		duplicate := false
+		for ckey, value := range keys {
+			if ckey == key {
+				duplicate = true
+				curr = value
+			}
+		}
+		if !duplicate {
+			keys[key] = curr
+		}
+		ctx = context.WithValue(ctx, CACHE_SQL_KEY, keys)
+	}
+	return context.WithValue(ctx, SQL_KEY, curr)
 }
 
 func (k *kit) ContextReset(ctx context.Context) context.Context {
-	return context.WithValue(ctx, SQL_KEY, k.cache)
+	if cacheKeys := ctx.Value(CACHE_SQL_KEY); cacheKeys == nil {
+		return ctx
+	} else {
+		keys := cacheKeys.(map[interface{}]interface{})
+		return context.WithValue(ctx, SQL_KEY, keys[SQL_KEY])
+	}
 }
