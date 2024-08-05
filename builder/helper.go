@@ -2,6 +2,7 @@ package builder
 
 import (
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -63,4 +64,195 @@ func buildConditionStatement(condition Condition) (string, interface{}) {
 		s.WriteString("?")
 		return s.String(), condition.Value
 	}
+}
+
+func buildInsert(table string, data map[string]interface{}, columns []string) (strings.Builder, []interface{}) {
+	var query strings.Builder
+	var fields strings.Builder
+	var placeholder strings.Builder
+	values := make([]interface{}, 0)
+	build := func(key string, value interface{}) {
+		if value != nil {
+			if fields.Len() > 0 {
+				fields.WriteString(",")
+				placeholder.WriteString(",")
+			}
+			fields.WriteString(key)
+			placeholder.WriteString("?")
+			values = append(values, value)
+		} else {
+			if fields.Len() > 0 {
+				fields.WriteString(",")
+				placeholder.WriteString(",")
+			}
+			placeholder.WriteString(key)
+			placeholder.WriteString("=")
+			placeholder.WriteString("NULL")
+		}
+	}
+	if len(columns) > 0 {
+		for _, column := range columns {
+			key := column
+			value := data[column]
+			build(key, value)
+		}
+	} else {
+		for key, value := range data {
+			build(key, value)
+		}
+	}
+	query.WriteString("INSERT INTO ")
+	query.WriteString(table)
+	query.WriteString("(")
+	query.WriteString(fields.String())
+	query.WriteString(") VALUES (")
+	query.WriteString(placeholder.String())
+	query.WriteString(");")
+	return query, values
+}
+
+func buildUpdate(table string, data map[string]interface{}, columns []string) (strings.Builder, []interface{}) {
+	var query strings.Builder
+	var placeholder strings.Builder
+	values := make([]interface{}, 0)
+	build := func(key string, value interface{}) {
+		if value != nil {
+			if placeholder.Len() > 0 {
+				placeholder.WriteString(",")
+			}
+			isAStatement := false
+			if tmp, ok := value.(string); ok {
+				isAStatement = strings.Contains(tmp, "`")
+			}
+			if isAStatement {
+				placeholder.WriteString(key)
+				placeholder.WriteString("=")
+				placeholder.WriteString(value.(string))
+			} else {
+				placeholder.WriteString(key)
+				placeholder.WriteString("=")
+				placeholder.WriteString("?")
+				values = append(values, value)
+			}
+		} else {
+			if placeholder.Len() > 0 {
+				placeholder.WriteString(",")
+			}
+			placeholder.WriteString(key)
+			placeholder.WriteString("=")
+			placeholder.WriteString("NULL")
+		}
+	}
+	if len(columns) > 0 {
+		for _, column := range columns {
+			key := column
+			value := data[column]
+			build(key, value)
+		}
+	} else {
+		for key, value := range data {
+			build(key, value)
+		}
+	}
+	query.WriteString("UPDATE ")
+	query.WriteString(table)
+	query.WriteString(" SET ")
+	query.WriteString(placeholder.String())
+	return query, values
+}
+
+func buildUpsert(table string, data map[string]interface{}, columns []string) (strings.Builder, []interface{}) {
+	var query strings.Builder
+	var fields strings.Builder
+	var insert strings.Builder
+	var update strings.Builder
+	values := make([]interface{}, 0)
+	buildInsert := func(key string, value interface{}) {
+		var insert strings.Builder
+		if value != nil {
+			if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
+				if fields.Len() > 0 {
+					fields.WriteString(",")
+					insert.WriteString(",")
+				}
+				fields.WriteString(key)
+				insert.WriteString("?")
+				values = append(values, value)
+			} else {
+				strValue := value.(string)
+				if fields.Len() > 0 {
+					fields.WriteString(",")
+					insert.WriteString(",")
+				}
+				fields.WriteString(key)
+				number, _ := regexp.Compile(`-?\d+(\.\d+)?`)
+				numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
+				if len(numbers) > 0 {
+					insert.WriteString("?")
+					values = append(values, strings.Join(numbers, ""))
+				} else {
+					insert.WriteString(strValue)
+				}
+			}
+		} else {
+			if fields.Len() > 0 {
+				fields.WriteString(",")
+				insert.WriteString(",")
+			}
+			fields.WriteString(key)
+			insert.WriteString("NULL")
+		}
+	}
+	buildUpdate := func(key string, value interface{}) {
+		var update strings.Builder
+		if value != nil {
+			if update.Len() > 0 {
+				update.WriteString(",")
+			}
+			isAStatement := false
+			if tmp, ok := value.(string); ok {
+				isAStatement = strings.Contains(tmp, "`")
+			}
+			if isAStatement {
+				update.WriteString(key)
+				update.WriteString("=")
+				update.WriteString(value.(string))
+			} else {
+				update.WriteString(key)
+				update.WriteString("=")
+				update.WriteString("?")
+				values = append(values, value)
+			}
+		} else {
+			if update.Len() > 0 {
+				update.WriteString(",")
+			}
+			update.WriteString(key)
+			update.WriteString("=")
+			update.WriteString("NULL")
+		}
+	}
+	if len(columns) > 0 {
+		for _, column := range columns {
+			key := column
+			value := data[column]
+			buildInsert(key, value)
+			buildUpdate(key, value)
+		}
+	} else {
+		for key, value := range data {
+			buildInsert(key, value)
+			buildUpdate(key, value)
+		}
+	}
+	query.WriteString("INSERT INTO ")
+	query.WriteString(table)
+	query.WriteString("(")
+	query.WriteString(fields.String())
+	query.WriteString(") VALUES (")
+	query.WriteString(insert.String())
+	query.WriteString(") ON DUPLICATE KEY UPDATE ")
+	query.WriteString(update.String())
+	query.WriteString(";")
+	return query, values
 }

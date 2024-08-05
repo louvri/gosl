@@ -2,7 +2,6 @@ package builder
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 )
@@ -10,9 +9,9 @@ import (
 const DateTimeFormat = "2006-01-02 15:04:05"
 
 type Builder interface {
-	Insert(data map[string]interface{}) Builder
-	Update(data map[string]interface{}) Builder
-	Upsert(data map[string]interface{}) Builder
+	Insert(data map[string]interface{}, columns ...string) Builder
+	Update(data map[string]interface{}, columns ...string) Builder
+	Upsert(data map[string]interface{}, columns ...string) Builder
 	Delete() Builder
 	Explain() Builder
 	Select(field string) Builder
@@ -62,18 +61,22 @@ type builder struct {
 	update          map[string]interface{}
 	insert          map[string]interface{}
 	delete          bool
+	columns         []string
 }
 
-func (b *builder) Insert(data map[string]interface{}) Builder {
+func (b *builder) Insert(data map[string]interface{}, columns ...string) Builder {
 	b.insert = data
+	b.columns = columns
 	return b
 }
-func (b *builder) Update(data map[string]interface{}) Builder {
+func (b *builder) Update(data map[string]interface{}, columns ...string) Builder {
 	b.update = data
+	b.columns = columns
 	return b
 }
-func (b *builder) Upsert(data map[string]interface{}) Builder {
+func (b *builder) Upsert(data map[string]interface{}, columns ...string) Builder {
 	b.upsert = data
+	b.columns = columns
 	return b
 }
 func (b *builder) Delete() Builder {
@@ -356,8 +359,10 @@ func (b *builder) Reset(section string) Builder {
 	return b
 }
 func (b *builder) Build() (string, []interface{}) {
+	var values []interface{}
 	var query strings.Builder
 	if len(b.insert) > 0 {
+<<<<<<< Updated upstream
 		var columns strings.Builder
 		var placeholder strings.Builder
 		for key, value := range b.insert {
@@ -421,6 +426,15 @@ func (b *builder) Build() (string, []interface{}) {
 		query.WriteString(b.source[0]["table"])
 		query.WriteString(" SET ")
 		query.WriteString(updates.String())
+=======
+		query, values = buildInsert(b.source[0]["table"], b.insert, b.columns)
+		b.values = values
+	} else if len(b.upsert) > 0 {
+		query, values = buildUpsert(b.source[0]["table"], b.upsert, b.columns)
+		b.values = values
+	} else if len(b.update) > 0 {
+		query, values = buildUpdate(b.source[0]["table"], b.update, b.columns)
+>>>>>>> Stashed changes
 		if b.whereStatement.Len() > 0 {
 			query.WriteString(" ")
 			query.WriteString("WHERE ")
@@ -428,6 +442,7 @@ func (b *builder) Build() (string, []interface{}) {
 			values = append(values, b.values...)
 		}
 		b.values = values
+<<<<<<< Updated upstream
 	} else if len(b.upsert) > 0 {
 		var columns strings.Builder
 		var insert strings.Builder
@@ -504,6 +519,8 @@ func (b *builder) Build() (string, []interface{}) {
 		query.WriteString(") ON DUPLICATE KEY UPDATE ")
 		query.WriteString(updates.String())
 		query.WriteString(";")
+=======
+>>>>>>> Stashed changes
 	} else if b.delete {
 		query.WriteString("DELETE ")
 		query.WriteString("FROM ")
@@ -563,5 +580,5 @@ func (b *builder) Build() (string, []interface{}) {
 		}
 	}
 
-	return query.String(), b.values
+	return query.String(), values
 }

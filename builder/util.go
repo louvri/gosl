@@ -38,6 +38,23 @@ func ResolveColumnName(column string) string {
 	builder.WriteRune('`')
 	return builder.String()
 }
+func ResolveColumnNameWithoutBacktick(column string) string {
+	var builder strings.Builder
+	var prev rune
+	caser := cases.Title(language.Und, cases.NoLower)
+	column = caser.String(column)
+	for _, curr := range column {
+		if prev >= 'a' && prev <= 'z' && curr >= 'A' && curr <= 'Z' {
+			builder.WriteString("_")
+			builder.WriteRune(unicode.ToLower(curr))
+		} else {
+			builder.WriteRune(unicode.ToLower(curr))
+		}
+		prev = curr
+	}
+	return builder.String()
+
+}
 func ResolveColumnNameCollections(columns []string) []string {
 	var results []string
 	for _, c := range columns {
