@@ -66,7 +66,7 @@ func buildConditionStatement(condition Condition) (string, interface{}) {
 	}
 }
 
-func buildInsert(table string, data map[string]interface{}, columns []string) (strings.Builder, []interface{}) {
+func buildInsert(table string, data map[string]interface{}, columns []string) (string, []interface{}) {
 	var query strings.Builder
 	var fields strings.Builder
 	var placeholder strings.Builder
@@ -110,10 +110,10 @@ func buildInsert(table string, data map[string]interface{}, columns []string) (s
 	query.WriteString(") VALUES (")
 	query.WriteString(placeholder.String())
 	query.WriteString(");")
-	return query, values
+	return query.String(), values
 }
 
-func buildUpdate(table string, data map[string]interface{}, columns []string) (strings.Builder, []interface{}) {
+func buildUpdate(table string, data map[string]interface{}, columns []string) (string, []interface{}) {
 	var query strings.Builder
 	var placeholder strings.Builder
 	values := make([]interface{}, 0)
@@ -162,10 +162,10 @@ func buildUpdate(table string, data map[string]interface{}, columns []string) (s
 	query.WriteString(table)
 	query.WriteString(" SET ")
 	query.WriteString(placeholder.String())
-	return query, values
+	return query.String(), values
 }
 
-func buildUpsert(table string, data map[string]interface{}, columns []string) (strings.Builder, []interface{}) {
+func buildUpsert(table string, data map[string]interface{}, columns []string) (string, []interface{}) {
 	var query strings.Builder
 	var fields strings.Builder
 	var insert strings.Builder
@@ -260,5 +260,5 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 	query.WriteString(") ON DUPLICATE KEY UPDATE ")
 	query.WriteString(update.String())
 	query.WriteString(";")
-	return query, values
+	return query.String(), values
 }
