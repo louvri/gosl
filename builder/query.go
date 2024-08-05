@@ -365,7 +365,7 @@ func (b *builder) Build() (string, []interface{}) {
 		query, values = buildInsert(b.source[0]["table"], b.insert, b.columns)
 	} else if len(b.upsert) > 0 {
 		query, values = buildUpsert(b.source[0]["table"], b.upsert, b.columns)
-	}else if len(b.update) > 0 {
+	} else if len(b.update) > 0 {
 		query, values = buildUpdate(b.source[0]["table"], b.update, b.columns)
 		if b.whereStatement.Len() > 0 {
 			query.WriteString(" ")

@@ -94,7 +94,9 @@ func buildInsert(table string, data map[string]interface{}, columns []string) (s
 		for _, column := range columns {
 			key := column
 			value := data[column]
-			build(key, value)
+			if value != nil {
+				build(key, value)
+			}
 		}
 	} else {
 		for key, value := range data {
@@ -147,7 +149,9 @@ func buildUpdate(table string, data map[string]interface{}, columns []string) (s
 		for _, column := range columns {
 			key := column
 			value := data[column]
-			build(key, value)
+			if value != nil {
+				build(key, value)
+			}
 		}
 	} else {
 		for key, value := range data {
@@ -236,8 +240,10 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 		for _, column := range columns {
 			key := column
 			value := data[column]
-			buildInsert(key, value)
-			buildUpdate(key, value)
+			if value != nil {
+				buildInsert(key, value)
+				buildUpdate(key, value)
+			}
 		}
 	} else {
 		for key, value := range data {
