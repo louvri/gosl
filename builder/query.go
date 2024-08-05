@@ -362,11 +362,17 @@ func (b *builder) Build() (string, []interface{}) {
 	var values []interface{}
 	var query strings.Builder
 	if len(b.insert) > 0 {
-		query, values = buildInsert(b.source[0]["table"], b.insert, b.columns)
+		var stmt string
+		stmt, values = buildInsert(b.source[0]["table"], b.insert, b.columns)
+		query.WriteString(stmt)
 	} else if len(b.upsert) > 0 {
-		query, values = buildUpsert(b.source[0]["table"], b.upsert, b.columns)
+		var stmt string
+		stmt, values = buildUpsert(b.source[0]["table"], b.upsert, b.columns)
+		query.WriteString(stmt)
 	} else if len(b.update) > 0 {
-		query, values = buildUpdate(b.source[0]["table"], b.update, b.columns)
+		var stmt string
+		stmt, values = buildUpdate(b.source[0]["table"], b.update, b.columns)
+		query.WriteString(stmt)
 		if b.whereStatement.Len() > 0 {
 			query.WriteString(" ")
 			query.WriteString("WHERE ")
