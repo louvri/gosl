@@ -172,7 +172,6 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 	var update strings.Builder
 	values := make([]interface{}, 0)
 	buildInsert := func(key string, value interface{}) {
-		var insert strings.Builder
 		if value != nil {
 			if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
 				if fields.Len() > 0 {
@@ -208,7 +207,6 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 		}
 	}
 	buildUpdate := func(key string, value interface{}) {
-		var update strings.Builder
 		if value != nil {
 			if update.Len() > 0 {
 				update.WriteString(",")
