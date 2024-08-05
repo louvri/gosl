@@ -72,6 +72,9 @@ func buildInsert(table string, data map[string]interface{}, columns []string) (s
 	var placeholder strings.Builder
 	values := make([]interface{}, 0)
 	build := func(key string, value interface{}) {
+		if !strings.Contains(key, "`") {
+			key = "`" + key + "`"
+		}
 		if value != nil {
 			if fields.Len() > 0 {
 				fields.WriteString(",")
@@ -85,8 +88,6 @@ func buildInsert(table string, data map[string]interface{}, columns []string) (s
 				fields.WriteString(",")
 				placeholder.WriteString(",")
 			}
-			placeholder.WriteString(key)
-			placeholder.WriteString("=")
 			placeholder.WriteString("NULL")
 		}
 	}
@@ -118,6 +119,9 @@ func buildUpdate(table string, data map[string]interface{}, columns []string) (s
 	var placeholder strings.Builder
 	values := make([]interface{}, 0)
 	build := func(key string, value interface{}) {
+		if !strings.Contains(key, "`") {
+			key = "`" + key + "`"
+		}
 		if value != nil {
 			if placeholder.Len() > 0 {
 				placeholder.WriteString(",")
@@ -173,6 +177,9 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 	insertValues := make([]interface{}, 0)
 	updateValues := make([]interface{}, 0)
 	buildInsert := func(key string, value interface{}) {
+		if !strings.Contains(key, "`") {
+			key = "`" + key + "`"
+		}
 		if value != nil {
 			if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
 				if fields.Len() > 0 {
@@ -208,6 +215,9 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 		}
 	}
 	buildUpdate := func(key string, value interface{}) {
+		if !strings.Contains(key, "`") {
+			key = "`" + key + "`"
+		}
 		if value != nil {
 			if update.Len() > 0 {
 				update.WriteString(",")
