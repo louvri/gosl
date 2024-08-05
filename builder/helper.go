@@ -170,7 +170,8 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 	var fields strings.Builder
 	var insert strings.Builder
 	var update strings.Builder
-	values := make([]interface{}, 0)
+	insertValues := make([]interface{}, 0)
+	updateValues := make([]interface{}, 0)
 	buildInsert := func(key string, value interface{}) {
 		if value != nil {
 			if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
@@ -180,7 +181,7 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 				}
 				fields.WriteString(key)
 				insert.WriteString("?")
-				values = append(values, value)
+				insertValues = append(insertValues, value)
 			} else {
 				strValue := value.(string)
 				if fields.Len() > 0 {
@@ -192,7 +193,7 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 				numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
 				if len(numbers) > 0 {
 					insert.WriteString("?")
-					values = append(values, strings.Join(numbers, ""))
+					insertValues = append(insertValues, strings.Join(numbers, ""))
 				} else {
 					insert.WriteString(strValue)
 				}
@@ -223,7 +224,7 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 				update.WriteString(key)
 				update.WriteString("=")
 				update.WriteString("?")
-				values = append(values, value)
+				updateValues = append(updateValues, value)
 			}
 		} else {
 			if update.Len() > 0 {
@@ -258,5 +259,8 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 	query.WriteString(") ON DUPLICATE KEY UPDATE ")
 	query.WriteString(update.String())
 	query.WriteString(";")
-	return query.String(), values
+	output := make([]interface{}, 0)
+	output = append(output, insertValues...)
+	output = append(output, updateValues...)
+	return query.String(), output
 }
