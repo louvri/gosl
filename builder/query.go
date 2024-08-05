@@ -362,71 +362,6 @@ func (b *builder) Build() (string, []interface{}) {
 	var values []interface{}
 	var query strings.Builder
 	if len(b.insert) > 0 {
-<<<<<<< Updated upstream
-		var columns strings.Builder
-		var placeholder strings.Builder
-		for key, value := range b.insert {
-			if value != nil {
-				if columns.Len() > 0 {
-					columns.WriteString(",")
-					placeholder.WriteString(",")
-				}
-				columns.WriteString(key)
-				placeholder.WriteString("?")
-				b.values = append(b.values, value)
-			} else if key != "" {
-				if columns.Len() > 0 {
-					columns.WriteString(",")
-					placeholder.WriteString(",")
-				}
-				placeholder.WriteString(key)
-				placeholder.WriteString("=")
-				placeholder.WriteString("NULL")
-			}
-		}
-		query.WriteString("INSERT INTO ")
-		query.WriteString(b.source[0]["table"])
-		query.WriteString("(")
-		query.WriteString(columns.String())
-		query.WriteString(") VALUES (")
-		query.WriteString(placeholder.String())
-		query.WriteString(");")
-	} else if len(b.update) > 0 {
-		var updates strings.Builder
-		values := make([]interface{}, 0)
-		for key, value := range b.update {
-			if value != nil {
-				if updates.Len() > 0 {
-					updates.WriteString(",")
-				}
-				isAStatement := false
-				if tmp, ok := value.(string); ok {
-					isAStatement = strings.Contains(tmp, "`")
-				}
-				if isAStatement {
-					updates.WriteString(key)
-					updates.WriteString("=")
-					updates.WriteString(value.(string))
-				} else {
-					updates.WriteString(key)
-					updates.WriteString("=")
-					updates.WriteString("?")
-					values = append(values, value)
-				}
-			} else if key != "" {
-				if updates.Len() > 0 {
-					updates.WriteString(",")
-				}
-				updates.WriteString(key)
-				updates.WriteString("=")
-				updates.WriteString("NULL")
-			}
-		}
-		query.WriteString("UPDATE ")
-		query.WriteString(b.source[0]["table"])
-		query.WriteString(" SET ")
-		query.WriteString(updates.String())
-=======
 		query, values = buildInsert(b.source[0]["table"], b.insert, b.columns)
 		b.values = values
 	} else if len(b.upsert) > 0 {
@@ -434,7 +369,6 @@ func (b *builder) Build() (string, []interface{}) {
 		b.values = values
 	} else if len(b.update) > 0 {
 		query, values = buildUpdate(b.source[0]["table"], b.update, b.columns)
->>>>>>> Stashed changes
 		if b.whereStatement.Len() > 0 {
 			query.WriteString(" ")
 			query.WriteString("WHERE ")
@@ -442,85 +376,6 @@ func (b *builder) Build() (string, []interface{}) {
 			values = append(values, b.values...)
 		}
 		b.values = values
-<<<<<<< Updated upstream
-	} else if len(b.upsert) > 0 {
-		var columns strings.Builder
-		var insert strings.Builder
-		for key, value := range b.upsert {
-			if value != nil {
-				if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
-					if columns.Len() > 0 {
-						columns.WriteString(",")
-						insert.WriteString(",")
-					}
-					columns.WriteString(key)
-					insert.WriteString("?")
-					b.values = append(b.values, value)
-				} else {
-					strValue := value.(string)
-					if columns.Len() > 0 {
-						columns.WriteString(",")
-						insert.WriteString(",")
-					}
-					columns.WriteString(key)
-					number, _ := regexp.Compile(`-?\d+(\.\d+)?`)
-					numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
-					if len(numbers) > 0 {
-						insert.WriteString("?")
-						b.values = append(b.values, strings.Join(numbers, ""))
-					} else {
-						insert.WriteString(strValue)
-					}
-				}
-			} else if key != "" {
-				if columns.Len() > 0 {
-					columns.WriteString(",")
-					insert.WriteString(",")
-				}
-				columns.WriteString(key)
-				insert.WriteString("NULL")
-			}
-		}
-		var updates strings.Builder
-		for key, value := range b.upsert {
-			if value != nil {
-				if updates.Len() > 0 {
-					updates.WriteString(",")
-				}
-				isAStatement := false
-				if tmp, ok := value.(string); ok {
-					isAStatement = strings.Contains(tmp, "`")
-				}
-				if isAStatement {
-					updates.WriteString(key)
-					updates.WriteString("=")
-					updates.WriteString(value.(string))
-				} else {
-					updates.WriteString(key)
-					updates.WriteString("=")
-					updates.WriteString("?")
-					b.values = append(b.values, value)
-				}
-			} else if key != "" {
-				if updates.Len() > 0 {
-					updates.WriteString(",")
-				}
-				updates.WriteString(key)
-				updates.WriteString("=")
-				updates.WriteString("NULL")
-			}
-		}
-		query.WriteString("INSERT INTO ")
-		query.WriteString(b.source[0]["table"])
-		query.WriteString("(")
-		query.WriteString(columns.String())
-		query.WriteString(") VALUES (")
-		query.WriteString(insert.String())
-		query.WriteString(") ON DUPLICATE KEY UPDATE ")
-		query.WriteString(updates.String())
-		query.WriteString(";")
-=======
->>>>>>> Stashed changes
 	} else if b.delete {
 		query.WriteString("DELETE ")
 		query.WriteString("FROM ")
@@ -580,5 +435,5 @@ func (b *builder) Build() (string, []interface{}) {
 		}
 	}
 
-	return query.String(), values
+	return query.String(), b.values
 }
