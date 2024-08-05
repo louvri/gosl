@@ -234,6 +234,9 @@ func (b *builder) Compare(conditions []Condition) Builder {
 }
 
 func (b *builder) NotEqual(column string, value interface{}) Builder {
+	if !strings.Contains(column, "`") {
+		column = "`" + column + "`"
+	}
 	if b.whereStatement.Len() > 0 {
 		b.whereStatement.WriteString(b.operator[0])
 		b.operator = b.operator[1:]
@@ -245,6 +248,9 @@ func (b *builder) NotEqual(column string, value interface{}) Builder {
 	return b
 }
 func (b *builder) Equal(column string, value interface{}) Builder {
+	if !strings.Contains(column, "`") {
+		column = "`" + column + "`"
+	}
 	if b.whereStatement.Len() > 0 {
 		b.whereStatement.WriteString(b.operator[0])
 		b.operator = b.operator[1:]
@@ -256,6 +262,9 @@ func (b *builder) Equal(column string, value interface{}) Builder {
 	return b
 }
 func (b *builder) BetweenTime(column string, from, to time.Time) Builder {
+	if !strings.Contains(column, "`") {
+		column = "`" + column + "`"
+	}
 	if b.whereStatement.Len() > 0 {
 		b.whereStatement.WriteString(b.operator[0])
 		b.operator = b.operator[1:]
@@ -280,6 +289,9 @@ func (b *builder) Size(n int) Builder {
 	return b
 }
 func (b *builder) Order(order OrderBy) Builder {
+	if !strings.Contains(order.Column, "`") {
+		order.Column = "`" + order.Column + "`"
+	}
 	if b.orderStatement.Len() > 0 {
 		b.orderStatement.WriteString(",")
 	}
@@ -302,6 +314,9 @@ func (b *builder) Orders(orders []OrderBy) Builder {
 	return b
 }
 func (b *builder) Group(column string) Builder {
+	if !strings.Contains(column, "`") {
+		column = "`" + column + "`"
+	}
 	if b.groupStatement.Len() > 0 {
 		b.groupStatement.WriteString(",")
 	}
@@ -310,11 +325,14 @@ func (b *builder) Group(column string) Builder {
 	return b
 }
 func (b *builder) Groups(columns []string) Builder {
-	for _, item := range columns {
+	for _, column := range columns {
+		if !strings.Contains(column, "`") {
+			column = "`" + column + "`"
+		}
 		if b.groupStatement.Len() > 0 {
 			b.groupStatement.WriteString(",")
 		}
-		b.groupStatement.WriteString(item)
+		b.groupStatement.WriteString(column)
 		b.groupStatement.WriteString(" ")
 	}
 
