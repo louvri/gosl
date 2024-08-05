@@ -363,11 +363,9 @@ func (b *builder) Build() (string, []interface{}) {
 	var query strings.Builder
 	if len(b.insert) > 0 {
 		query, values = buildInsert(b.source[0]["table"], b.insert, b.columns)
-		b.values = values
 	} else if len(b.upsert) > 0 {
 		query, values = buildUpsert(b.source[0]["table"], b.upsert, b.columns)
-		b.values = values
-	} else if len(b.update) > 0 {
+	}else if len(b.update) > 0 {
 		query, values = buildUpdate(b.source[0]["table"], b.update, b.columns)
 		if b.whereStatement.Len() > 0 {
 			query.WriteString(" ")
@@ -375,7 +373,6 @@ func (b *builder) Build() (string, []interface{}) {
 			query.WriteString(b.whereStatement.String())
 			values = append(values, b.values...)
 		}
-		b.values = values
 	} else if b.delete {
 		query.WriteString("DELETE ")
 		query.WriteString("FROM ")
@@ -384,6 +381,7 @@ func (b *builder) Build() (string, []interface{}) {
 			query.WriteString("WHERE ")
 			query.WriteString(b.whereStatement.String())
 		}
+		values = b.values
 	} else {
 		if b.explain {
 			query.WriteString("EXPLAIN ")
@@ -433,6 +431,7 @@ func (b *builder) Build() (string, []interface{}) {
 			query.WriteString(" ")
 			query.WriteString(fmt.Sprintf("OFFSET %d ", b.page*b.size))
 		}
+		values = b.values
 	}
 
 	return query.String(), values
