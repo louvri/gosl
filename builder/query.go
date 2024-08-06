@@ -298,7 +298,15 @@ func (b *builder) Order(order OrderBy) Builder {
 	if len(order.Fields) > 0 {
 		b.orderStatement.WriteString("Field(")
 		b.orderStatement.WriteString(order.Column)
-		b.orderStatement.WriteString(strings.Join(order.Fields, ","))
+		b.orderStatement.WriteString(",")
+		for i, field := range order.Fields {
+			if i > 0 {
+				b.orderStatement.WriteString(",")
+			}
+			b.orderStatement.WriteString("'")
+			b.orderStatement.WriteString(field)
+			b.orderStatement.WriteString("'")
+		}
 		b.orderStatement.WriteString(")")
 	} else {
 		b.orderStatement.WriteString(order.Column)
