@@ -195,12 +195,14 @@ func (b *builder) Exists(other Builder, condition Condition) Builder {
 		b.operator = b.operator[1:]
 	}
 	_other := other.(*builder)
-	if _other.whereStatement.Len() > 0 {
-		_other.whereStatement.WriteString(" AND ")
-	}
+	var tmp strings.Builder
 	conditionStatement, _ := buildConditionStatement(condition)
-	_other.whereStatement.WriteString(conditionStatement)
-
+	tmp.WriteString(conditionStatement)
+	if _other.whereStatement.Len() > 0 {
+		tmp.WriteString(" AND ")
+	}
+	tmp.WriteString(_other.whereStatement.String())
+	_other.whereStatement = tmp
 	b.whereStatement.WriteString(" EXISTS (")
 	innerStatement, values := _other.Build()
 	b.whereStatement.WriteString(innerStatement)
