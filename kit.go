@@ -31,10 +31,7 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 			keys = append(keys, key)
 		}
 	} else {
-		key := ctx.Value(SQL_KEY)
-		if key != nil {
-			keys = append(keys, key)
-		}
+		keys = append(keys, SQL_KEY)
 	}
 	if len(keys) == 0 {
 		return errors.New("no active key present")
