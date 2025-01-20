@@ -15,10 +15,11 @@ type QueryParams struct {
 	Orderby      []OrderBy
 	Groupby      []string
 	ColumnFilter []string
-	Priority     []string
+	Priorities   []string
 	Merge        *Merge
 	BetweenTime  map[string][]time.Time
 	IsDistinct   bool
+	Name         string
 }
 
 func (q *QueryParams) Clone() QueryParams {
