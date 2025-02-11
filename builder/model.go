@@ -5,21 +5,21 @@ import (
 )
 
 type QueryParams struct {
-	Object       interface{}
-	In           map[string]interface{}
-	Notin        map[string]interface{}
-	Conditions   []Condition
-	Next         *Next
-	Page         int
-	Size         int
-	Orderby      []OrderBy
-	Groupby      []string
-	ColumnFilter []string
-	Priorities   []string
-	Merge        *Merge
-	BetweenTime  map[string][]time.Time
-	IsDistinct   bool
-	Name         string
+	Object               interface{}
+	In                   map[string]interface{}
+	Notin                map[string]interface{}
+	Conditions           []Condition
+	Next                 *Next
+	Page                 int
+	Size                 int
+	Orderby              []OrderBy
+	Groupby              []string
+	ColumnFilter         []string
+	Priorities           []string
+	Merge                *Merge
+	BetweenTime          map[string][]time.Time
+	UseDistinct          bool
+	UsePreparedStatement bool
 }
 
 func (q *QueryParams) Clone() QueryParams {
