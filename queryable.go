@@ -132,32 +132,32 @@ func (qtx *Queryable) NamedQuery(query string, arg interface{}) (*sqlx.Rows, err
 }
 
 // PrepareNamed ...
-func (qtx *Queryable) PrepareNamed(query string) (*sqlx.NamedStmt, error) {
-	if qtx.tx != nil {
+func (qtx *Queryable) PrepareNamed(query string, withTransaction bool) (*sqlx.NamedStmt, error) {
+	if withTransaction && qtx.tx != nil {
 		return qtx.tx.PrepareNamed(query)
 	}
 	return qtx.db.PrepareNamed(query)
 }
 
 // PrepareNamedContext ...
-func (qtx *Queryable) PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error) {
-	if qtx.tx != nil {
+func (qtx *Queryable) PrepareNamedContext(ctx context.Context, query string, withTransaction bool) (*sqlx.NamedStmt, error) {
+	if withTransaction && qtx.tx != nil {
 		return qtx.tx.PrepareNamedContext(ctx, query)
 	}
 	return qtx.db.PrepareNamedContext(ctx, query)
 }
 
 // Preparex ...
-func (qtx *Queryable) Preparex(query string) (*sqlx.Stmt, error) {
-	if qtx.tx != nil {
+func (qtx *Queryable) Preparex(query string, withTransaction bool) (*sqlx.Stmt, error) {
+	if withTransaction && qtx.tx != nil {
 		return qtx.tx.Preparex(query)
 	}
 	return qtx.db.Preparex(query)
 }
 
 // PreparexContext ...
-func (qtx *Queryable) PreparexContext(ctx context.Context, query string) (*sqlx.Stmt, error) {
-	if qtx.tx != nil {
+func (qtx *Queryable) PreparexContext(ctx context.Context, query string, withTransaction bool) (*sqlx.Stmt, error) {
+	if withTransaction && qtx.tx != nil {
 		return qtx.tx.PreparexContext(ctx, query)
 	}
 	return qtx.db.PreparexContext(ctx, query)
@@ -261,4 +261,20 @@ func (qtx *Queryable) NamedQueryRowxContext(ctx context.Context, query string, a
 
 	row := qtx.db.QueryRowxContext(ctx, query, args2...)
 	return row, nil
+}
+
+func (qtx *Queryable) Stmtx(stmt interface{}) *sqlx.Stmt {
+	if qtx.tx == nil {
+		return nil
+	} else {
+		return qtx.tx.Stmtx(stmt)
+	}
+}
+
+func (qtx *Queryable) StmtxContext(ctx context.Context, stmt interface{}) *sqlx.Stmt {
+	if qtx.tx == nil {
+		return nil
+	} else {
+		return qtx.tx.StmtxContext(ctx, stmt)
+	}
 }
