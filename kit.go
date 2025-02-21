@@ -9,7 +9,7 @@ import (
 )
 
 type Kit interface {
-	RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error
+	RunInTransaction(ctx context.Context, handler func(ctx context.Context) (context.Context, error)) error
 	ContextSwitch(ctx context.Context, key interface{}) context.Context
 	ContextReset(ctx context.Context) context.Context
 }
@@ -21,7 +21,7 @@ func New(ctx context.Context) Kit {
 type kit struct {
 }
 
-func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error {
+func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Context) (context.Context, error)) error {
 	var err error
 	trxs := make([]*sqlx.Tx, 0)
 	keys := make([]interface{}, 0)
@@ -36,38 +36,43 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 	if len(keys) == 0 {
 		return errors.New("no active key present")
 	}
-	callCount, ok := ctx.Value(SYSTEM_STACK).(int)
+	var ok bool
+	var stacks []*sqlx.Tx
+	stacks, ok = ctx.Value(SYSTEM_STACK).([]*sqlx.Tx)
 	if !ok {
-		callCount = 0
+		stacks = make([]*sqlx.Tx, 0)
 	}
-	if callCount == 0 {
-		for _, key := range keys {
-			if queryable, ok := ctx.Value(key).(*Queryable); ok {
-				var tx *sqlx.Tx
-				tx, err = queryable.db.Beginx()
-				if err != nil {
-					return err
-				}
-				con := make(map[string]interface{})
-				con["db"] = queryable.db
-				con["tx"] = tx
-				ctx = context.WithValue(ctx, key, NewQueryable(con))
-				trxs = append(trxs, tx)
+	for _, key := range keys {
+		if queryable, ok := ctx.Value(key).(*Queryable); ok {
+			var tx *sqlx.Tx
+			tx, err = queryable.db.Beginx()
+			if err != nil {
+				return err
 			}
+			con := make(map[string]interface{})
+			con["db"] = queryable.db
+			con["tx"] = tx
+			ctx = context.WithValue(ctx, key, NewQueryable(con))
+			trxs = append(trxs, tx)
 		}
 	}
-	ctx = context.WithValue(ctx, SYSTEM_STACK, callCount+1)
-	err = handler(ctx)
+	stacks = append(stacks, trxs...)
+	ctx = context.WithValue(ctx, SYSTEM_STACK, stacks)
+	ctx, err = handler(ctx)
 	if err != nil {
 		for _, trx := range trxs {
 			_ = trx.Rollback()
 		}
 		return err
-	} else if callCount == 0 {
-		for _, trx := range trxs {
+	} else {
+		stacks, ok = ctx.Value(SYSTEM_STACK).([]*sqlx.Tx)
+		if !ok {
+			stacks = make([]*sqlx.Tx, 0)
+		}
+		for _, trx := range stacks {
 			err := trx.Commit()
 			if err != nil {
-				for _, itrx := range trxs {
+				for _, itrx := range stacks {
 					_ = itrx.Rollback()
 				}
 				return fmt.Errorf("error when committing transaction: %v", err)
