@@ -143,8 +143,8 @@ func transact(ctx context.Context, level int) (context.Context, error) {
 			con["tx"] = tx
 			ctx = context.WithValue(ctx, SQL_KEY, NewQueryable(con))
 			stacks, ok := ctx.Value(SYSTEM_STACK).([]stack)
-			if ok && len(stacks) <= level && stacks[level].Level == level {
-				stacks[level].Transactions = append(stacks[level].Transactions, tx)
+			if ok && len(stacks) > level-1 && stacks[level-1].Level == level-1 {
+				stacks[level-1].Transactions = append(stacks[level-1].Transactions, tx)
 			} else {
 				stacks = make([]stack, 0)
 				stacks = append(stacks, stack{
