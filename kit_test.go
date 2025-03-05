@@ -45,7 +45,7 @@ func TestRunInTransaction(t *testing.T) {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	err = kit.RunInTransaction(
+	_, err = kit.RunInTransaction(
 		ctx,
 		func(ctx context.Context) (context.Context, error) {
 			queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
@@ -92,7 +92,7 @@ func TestConsecutiveRunInTransaction(t *testing.T) {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	err = kit.RunInTransaction(
+	_, err = kit.RunInTransaction(
 		ctx,
 		func(ctx context.Context) (context.Context, error) {
 			queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
@@ -111,7 +111,7 @@ func TestConsecutiveRunInTransaction(t *testing.T) {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	err = kit.RunInTransaction(
+	_, err = kit.RunInTransaction(
 		ctx,
 		func(ctx context.Context) (context.Context, error) {
 			queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
@@ -178,7 +178,7 @@ func TestRunInTransactionWithSwitchContext(t *testing.T) {
 				log.Fatal(err.Error())
 				t.Fail()
 			}
-			err = kit.RunInTransaction(
+			_, err = kit.RunInTransaction(
 				ctx,
 				func(ctx context.Context) (context.Context, error) {
 					queryable, ok = ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
@@ -225,6 +225,19 @@ func TestNestedRunInTransaction(t *testing.T) {
 			2*time.Minute,
 			2*time.Minute,
 		)))
+	ctx = context.WithValue(ctx,
+		TKey,
+		gosl.NewQueryable(gosl.ConnectToDB(
+			"root",
+			"abcd",
+			"localhost",
+			"3306",
+			"test_2",
+			1,
+			1,
+			2*time.Minute,
+			2*time.Minute,
+		)))
 	kit := gosl.New(ctx)
 	queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
 	_, err := queryable.ExecContext(ctx, "DELETE FROM `hello`")
@@ -242,7 +255,7 @@ func TestNestedRunInTransaction(t *testing.T) {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	err = kit.RunInTransaction(
+	_, err = kit.RunInTransaction(
 		ctx,
 		func(ctx context.Context) (context.Context, error) {
 			queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
@@ -254,11 +267,22 @@ func TestNestedRunInTransaction(t *testing.T) {
 			if err != nil {
 				return ctx, err
 			}
-			err = kit.RunInTransaction(
+			ctx, err = kit.RunInTransaction(
 				ctx,
 				func(ctx context.Context) (context.Context, error) {
 					queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
 					_, err := queryable.ExecContext(ctx, "INSERT INTO `hello` VALUES('tigabelasbelas')")
+					if err != nil {
+						return ctx, err
+					}
+					var ok bool
+					if ctx, err = kit.ContextSwitch(ctx, TKey); err == nil {
+						queryable, ok = ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
+						if !ok {
+							t.Fatal("failed to get queryable")
+						}
+					}
+					_, err = queryable.ExecContext(ctx, "INSERT INTO `world` VALUES('empat')")
 					if err != nil {
 						return ctx, err
 					}
@@ -304,7 +328,7 @@ func TestNestedRunInTransactionWithFailAtTheEnd(t *testing.T) {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	err = kit.RunInTransaction(
+	_, err = kit.RunInTransaction(
 		ctx,
 		func(ctx context.Context) (context.Context, error) {
 			queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
@@ -317,7 +341,7 @@ func TestNestedRunInTransactionWithFailAtTheEnd(t *testing.T) {
 				return ctx, err
 			}
 
-			err = kit.RunInTransaction(
+			ctx, err = kit.RunInTransaction(
 				ctx,
 				func(ctx context.Context) (context.Context, error) {
 					queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
