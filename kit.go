@@ -3,7 +3,6 @@ package gosl
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -51,17 +50,19 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 	} else if level == 1 {
 		for _, stck := range stacks {
 			for _, tx := range stck.Transactions {
-				err := tx.Commit()
+				err = tx.Commit()
 				if err != nil {
-					for _, istck := range stacks {
-						for _, itx := range istck.Transactions {
-							_ = itx.Rollback()
-						}
-					}
-					return fmt.Errorf("error when committing transaction: %v", err)
+					break
 				}
 			}
-
+		}
+		if err != nil {
+			for _, stck := range stacks {
+				for _, tx := range stck.Transactions {
+					_ = tx.Rollback()
+				}
+			}
+			return err
 		}
 	}
 	return nil
