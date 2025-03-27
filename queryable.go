@@ -278,7 +278,3 @@ func (qtx *Queryable) StmtxContext(ctx context.Context, stmt interface{}) *sqlx.
 		return qtx.tx.StmtxContext(ctx, stmt)
 	}
 }
-
-func (qtx *Queryable) SetKey(key any) {
-	qtx.key = key
-}
