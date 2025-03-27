@@ -72,7 +72,17 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, error) {
 	var err error
 	ctx = context.WithValue(ctx, ACTIVE_SQL_KEY, key)
-	curr := ctx.Value(key)
+	var curr any
+	if tmp, ok := ctx.Value(key).(*Queryable); ok {
+		tmp.key = key
+		curr = tmp
+	} else if tmp, ok := ctx.Value(key).(Queryable); ok {
+		tmp.key = key
+		curr = tmp
+	} else {
+		curr = ctx.Value(key)
+	}
+
 	if cacheKeys := ctx.Value(CACHE_SQL_KEY); cacheKeys == nil {
 		keys := make(map[any]any)
 		keys["PRIMARY"] = ctx.Value(SQL_KEY)
