@@ -35,7 +35,8 @@ func NewQueryable(db interface{}, keys ...any) *Queryable {
 		}
 	}
 	return &Queryable{
-		db: db.(*sqlx.DB),
+		db:  db.(*sqlx.DB),
+		key: key,
 	}
 }
 
