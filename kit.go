@@ -138,7 +138,7 @@ func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
 
 func transact(ctx context.Context, level int) (context.Context, error) {
 	if queryable, ok := ctx.Value(SQL_KEY).(*Queryable); ok {
-		if queryable.tx == nil {
+		if queryable.tx == nil || queryable.key != nil {
 			var tx *sqlx.Tx
 			tx, err := queryable.db.Beginx()
 			if err != nil {
