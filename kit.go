@@ -147,7 +147,8 @@ func transact(ctx context.Context, level int) (context.Context, error) {
 			con := make(map[string]any)
 			con["db"] = queryable.db
 			con["tx"] = tx
-			ctx = context.WithValue(ctx, SQL_KEY, NewQueryable(con, queryable.key))
+			con["key"] = queryable.key
+			ctx = context.WithValue(ctx, SQL_KEY, NewQueryable(con))
 			stacks, ok := ctx.Value(SYSTEM_STACK).([]stack)
 			found := -1
 			for i := 0; ok && i < len(stacks); i++ {

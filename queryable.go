@@ -13,13 +13,11 @@ type Queryable struct {
 	key interface{}
 }
 
-func NewQueryable(db interface{}, keys ...any) *Queryable {
-	var key any
-	if len(keys) > 0 && keys[0] != nil {
-		key = keys[0]
-	}
+func NewQueryable(db interface{}) *Queryable {
+
 	tmp, ok := db.(map[string]interface{})
 	if ok {
+		var key interface{}
 		db, ok := tmp["db"].(*sqlx.DB)
 		if !ok {
 			return &Queryable{}
@@ -28,6 +26,9 @@ func NewQueryable(db interface{}, keys ...any) *Queryable {
 		if !ok {
 			return &Queryable{}
 		}
+		if tmp, ok := tmp["key"]; ok && tmp != nil {
+			key = tmp
+		}
 		return &Queryable{
 			db:  db,
 			tx:  tx,
@@ -35,8 +36,7 @@ func NewQueryable(db interface{}, keys ...any) *Queryable {
 		}
 	}
 	return &Queryable{
-		db:  db.(*sqlx.DB),
-		key: key,
+		db: db.(*sqlx.DB),
 	}
 }
 
