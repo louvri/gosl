@@ -95,7 +95,7 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 	curr.key = key
 	if cacheKeys := _ctx.Get(CACHE_SQL_KEY); cacheKeys == nil {
 		keys := make(map[any]any)
-		keys["PRIMARY"] = ctx.Value(SQL_KEY)
+		_ctx.Set(PRIMARY_SQL_KEY, ctx.Value(SQL_KEY))
 		keys[key] = curr
 		_ctx.Set(CACHE_SQL_KEY, keys)
 	} else {
@@ -142,16 +142,7 @@ func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
 		}
 	}
 	_ctx.Set(CURRENT_SQL_KEY, SQL_KEY)
-	if cacheKeys := _ctx.Get(CACHE_SQL_KEY); cacheKeys == nil {
-		return ctx, nil
-	} else {
-		keys := cacheKeys.(map[any]any)
-		if keys["PRIMARY"] != nil {
-			_ctx.Set(SQL_KEY, keys["PRIMARY"])
-		} else {
-			_ctx.Set(SQL_KEY, keys[SQL_KEY])
-		}
-	}
+	_ctx.Set(SQL_KEY, _ctx.Get(PRIMARY_SQL_KEY))
 	return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
 }
 

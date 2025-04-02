@@ -14,6 +14,44 @@ type TestKey int
 
 var TKey TestKey = 13
 
+func TestContextSwitch(t *testing.T) {
+	ctx := context.WithValue(context.Background(),
+		gosl.SQL_KEY,
+		gosl.NewQueryable(gosl.ConnectToDB(
+			"root",
+			"abcd",
+			"localhost",
+			"3306",
+			"test_1",
+			1,
+			1,
+			2*time.Minute,
+			2*time.Minute,
+		)))
+	ctx = context.WithValue(ctx,
+		TKey,
+		gosl.NewQueryable(gosl.ConnectToDB(
+			"root",
+			"abcd",
+			"localhost",
+			"3306",
+			"test_2",
+			1,
+			1,
+			2*time.Minute,
+			2*time.Minute,
+		)))
+	kit := gosl.New(ctx)
+	_, err := kit.ContextSwitch(ctx, TKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = kit.ContextReset(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRunInTransaction(t *testing.T) {
 	ctx := context.WithValue(context.Background(),
 		gosl.SQL_KEY,
