@@ -190,3 +190,18 @@ func transact(ctx context.Context, level int) (context.Context, error) {
 	}
 	return ctx, errors.New("key is not active")
 }
+
+func QueryableFromContext(ctx context.Context) *Queryable {
+	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
+	var q *Queryable
+	if ok {
+		q, ok = _ctx.Get(SQL_KEY).(*Queryable)
+
+	} else {
+		q, ok = ctx.Value(SQL_KEY).(*Queryable)
+	}
+	if !ok {
+		return nil
+	}
+	return q
+}
