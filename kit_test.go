@@ -364,18 +364,16 @@ func TestNestedRunInTransactionWithFailAtTheEnd(t *testing.T) {
 		)))
 	kit := gosl.New(ctx)
 	var queryable *gosl.Queryable
-	ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
-	if ok {
-		queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
-	} else {
+	queryable, ok := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
+	if !ok {
 		t.Fatal("sql not initiated")
 	}
-	_, err := queryable.ExecContext(ictx.Base(), "DELETE FROM `hello`")
+	_, err := queryable.ExecContext(ctx, "DELETE FROM `hello`")
 	if err != nil {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	_, err = queryable.ExecContext(ictx.Base(), "DELETE FROM `hello_2`")
+	_, err = queryable.ExecContext(ctx, "DELETE FROM `hello_2`")
 	if err != nil {
 		log.Fatal(err.Error())
 		t.Fail()
