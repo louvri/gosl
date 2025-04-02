@@ -88,6 +88,7 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 	}
 	_ctx.Set(CURRENT_SQL_KEY, key)
 	if tmp, ok := _ctx.Get(key).(*Queryable); ok {
+		tmp.key = key
 		curr = tmp
 	} else if tmp, ok := _ctx.Get(key).(Queryable); ok {
 		curr = &tmp
@@ -95,7 +96,13 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 	curr.key = key
 	if cacheKeys := _ctx.Get(CACHE_SQL_KEY); cacheKeys == nil {
 		keys := make(map[any]any)
-		_ctx.Set(PRIMARY_SQL_KEY, ctx.Value(SQL_KEY))
+		if q, ok := ctx.Value(SQL_KEY).(*Queryable); !ok {
+			if q, ok = _ctx.Base().Value(SQL_KEY).(*Queryable); ok {
+				_ctx.Set(PRIMARY_SQL_KEY, q)
+			}
+		} else {
+			_ctx.Set(PRIMARY_SQL_KEY, q)
+		}
 		keys[key] = curr
 		_ctx.Set(CACHE_SQL_KEY, keys)
 	} else {
