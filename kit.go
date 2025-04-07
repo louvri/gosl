@@ -150,7 +150,7 @@ func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
 	}
 	_ctx.Set(CURRENT_SQL_KEY, SQL_KEY)
 	if ref := _ctx.Get(PRIMARY_SQL_KEY); ok && ref != nil {
-
+		_ctx.Set(SQL_KEY, ref)
 	} else {
 		if q, ok := ctx.Value(SQL_KEY).(*Queryable); !ok {
 			if q, ok = _ctx.Base().Value(SQL_KEY).(*Queryable); ok {
@@ -160,7 +160,7 @@ func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
 			_ctx.Set(PRIMARY_SQL_KEY, q)
 		}
 	}
-	_ctx.Set(SQL_KEY, _ctx.Get(PRIMARY_SQL_KEY))
+
 	return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
 }
 
