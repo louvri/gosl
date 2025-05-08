@@ -2,6 +2,7 @@ package statement_test
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -102,12 +103,25 @@ func TestEvictionSkipWhenInUse(t *testing.T) {
 	_, err = stmtCache.Build("q2", query2, sqlxDB, true, false) // attempt to evict q1
 	assert.NoError(t, err)
 
+	before := time.Now()
 	// Wait to allow possible eviction
 	time.Sleep(200 * time.Millisecond)
 
 	// q1 should still exist
-	_, err = stmtCache.Mount("q1")
-	assert.NoError(t, err)
+	var wg sync.WaitGroup
+	for i := 0; i < 1-000-000; i++ {
+		wg.Add(1)
+		go func(counter int) {
+			defer wg.Done()
+			_, err = stmtCache.Mount("q1")
+			if err != nil {
+				panic(err.Error())
+			}
+		}(i)
+	}
+	wg.Wait()
+	fmt.Println("execution time: ", time.Since(before))
+	fmt.Println("done")
 }
 
 func WrapDB() *sqlx.DB {
