@@ -90,6 +90,31 @@ func (c *LRU[K, V]) Purge() {
 	c.evictList.Init()
 }
 
+func (c *LRU[K, V]) Extend(key K, value V) (evicted bool) {
+	now := time.Now()
+
+	// Check for existing item
+	if ent, ok := c.items[key]; ok {
+		c.evictList.MoveToFront(ent)
+		c.removeFromBucket(ent)
+		ent.Value = value
+		ent.ExpiresAt = now.Add(c.ttl)
+		c.addToBucket(ent)
+		return false
+	}
+
+	// Add new item
+	ent := c.evictList.PushFrontExpirable(key, value, now.Add(c.ttl))
+	c.items[key] = ent
+	c.addToBucket(ent)
+
+	evict := c.size > 0 && c.evictList.Length() > c.size
+	if evict {
+		c.removeOldest()
+	}
+	return evict
+}
+
 func (c *LRU[K, V]) Add(key K, value V) (evicted bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

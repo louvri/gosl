@@ -11,26 +11,26 @@ import (
 )
 
 type statement struct {
-	cache *expirable.LRU[string, *Cache]
+	cache *expirable.LRU[string, Cache]
 	mu    sync.RWMutex
 }
 
 type Statement interface {
-	Build(statementKey, query string, db *sqlx.DB, allowEvict, inUse bool) (*Cache, error)
+	Build(statementKey, query string, db *sqlx.DB, allowEvict, inUse bool) (Cache, error)
 	Set(key string, inUse bool)
 	Mount(key string) (*sqlx.Stmt, error)
-	Get(key string) (*Cache, error)
+	Get(key string) (Cache, error)
 	Unmount(key string)
 }
 
-func New(maxStatements int, cacheTTL time.Duration) Statement {
+func New(cap int, cacheTTL time.Duration) Statement {
 	stmt := &statement{}
 
-	stmt.cache = expirable.NewLRU[string, *Cache](
-		maxStatements,
-		func(key string, cached *Cache) {
+	stmt.cache = expirable.NewLRU[string, Cache](
+		cap,
+		func(key string, cached Cache) {
 			if cached.inUse || !cached.allowEvict {
-				stmt.cache.Add(key, cached)
+				stmt.cache.Extend(key, cached)
 				return
 			}
 			if cached.stmt != nil {
@@ -45,7 +45,7 @@ func New(maxStatements int, cacheTTL time.Duration) Statement {
 	return stmt
 }
 
-func (s *statement) Build(statementKey, query string, db *sqlx.DB, allowEvict, inUse bool) (*Cache, error) {
+func (s *statement) Build(statementKey, query string, db *sqlx.DB, allowEvict, inUse bool) (Cache, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -57,10 +57,10 @@ func (s *statement) Build(statementKey, query string, db *sqlx.DB, allowEvict, i
 	// Prepare new statement
 	stmt, err := db.Preparex(query)
 	if err != nil {
-		return nil, err
+		return Cache{}, err
 	}
 
-	c := &Cache{}
+	c := Cache{}
 	c.Set(stmt, allowEvict, inUse)
 	s.cache.Add(statementKey, c)
 	return c, nil
@@ -72,11 +72,15 @@ func (s *statement) Set(key string, inUse bool) {
 
 	if cache, ok := s.cache.Get(key); ok {
 		cache.inUse = inUse
+		s.cache.Add(key, cache)
 	}
 }
 
 func (s *statement) Mount(key string) (*sqlx.Stmt, error) {
-	var existing *Cache
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var existing Cache
 	if cached, ok := s.cache.Peek(key); ok && (!cached.allowEvict || cached.inUse) {
 		cached.inUse = true
 		existing = cached
@@ -86,7 +90,7 @@ func (s *statement) Mount(key string) (*sqlx.Stmt, error) {
 		cache.inUse = true
 		existing = cache
 	}
-	if existing == nil {
+	if existing.stmt == nil {
 		return nil, errors.New("not_exists")
 	}
 	s.cache.Add(key, existing)
@@ -94,22 +98,25 @@ func (s *statement) Mount(key string) (*sqlx.Stmt, error) {
 }
 
 func (s *statement) Unmount(key string) {
-	var existing *Cache
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var existing Cache
 	if cached, ok := s.cache.Peek(key); ok && (!cached.allowEvict || cached.inUse) {
-		cached.inUse = true
+		cached.inUse = false
 		existing = cached
 	}
 
 	if cache, ok := s.cache.Get(key); ok {
-		cache.inUse = true
+		cache.inUse = false
 		existing = cache
 	}
 	s.cache.Add(key, existing)
 }
 
-func (s *statement) Get(key string) (*Cache, error) {
+func (s *statement) Get(key string) (Cache, error) {
 	if cache, ok := s.cache.Get(key); ok {
 		return cache, nil
 	}
-	return nil, errors.New("not_exists")
+	return Cache{}, errors.New("not_exists")
 }
