@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/jmoiron/sqlx"
+	expirable "github.com/louvri/gosl/cache"
 )
 
 type statement struct {
@@ -30,6 +30,7 @@ func New(maxStatements int, cacheTTL time.Duration) Statement {
 		maxStatements,
 		func(key string, cached *Cache) {
 			if cached.inUse || !cached.allowEvict {
+				stmt.cache.Add(key, cached)
 				return
 			}
 			if cached.stmt != nil {

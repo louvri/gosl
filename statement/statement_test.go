@@ -90,7 +90,7 @@ func TestEvictionSkipWhenInUse(t *testing.T) {
 
 	sqlxDB := WrapDB()
 	defer sqlxDB.Close()
-	stmtCache := statement.New(10, 2000*time.Millisecond)
+	stmtCache := statement.New(10, 100*time.Millisecond)
 	query1 := "SELECT * FROM one"
 	query2 := "SELECT * FROM two"
 
@@ -103,7 +103,7 @@ func TestEvictionSkipWhenInUse(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Wait to allow possible eviction
-	time.Sleep(6000 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	// q1 should still exist
 	_, err = stmtCache.Mount("q1")
