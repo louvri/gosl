@@ -3,6 +3,7 @@ package statement_test
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -86,42 +87,42 @@ func TestEvictionClosesStatement(t *testing.T) {
 }
 
 func TestEvictionSkipWhenInUse(t *testing.T) {
-	// db, _, _ := sqlmock.New()
-	// defer db.Close()
-
 	sqlxDB := WrapDB()
 	defer sqlxDB.Close()
+
 	stmtCache := statement.New(10, 100*time.Millisecond)
 	query1 := "SELECT * FROM one"
 	query2 := "SELECT * FROM two"
 
-	// mock.ExpectPrepare(query1)
 	_, err := stmtCache.Build("q1", query1, sqlxDB, true, true) // inUse = true
 	assert.NoError(t, err)
 
-	// mock.ExpectPrepare(query2)
 	_, err = stmtCache.Build("q2", query2, sqlxDB, true, false) // attempt to evict q1
 	assert.NoError(t, err)
 
-	before := time.Now()
-	// Wait to allow possible eviction
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond) // allow eviction timer
 
-	// q1 should still exist
-	var wg sync.WaitGroup
-	for i := 0; i < 1-000-000; i++ {
+	var (
+		wg      sync.WaitGroup
+		counter int64
+	)
+
+	start := time.Now()
+	for i := 0; i < 1000000; i++ { // reasonable number for concurrency test
 		wg.Add(1)
-		go func(counter int) {
+		go func() {
 			defer wg.Done()
-			_, err = stmtCache.Mount("q1")
-			if err != nil {
+			if _, err := stmtCache.Mount("q1"); err != nil {
 				panic(err.Error())
+			} else {
+				atomic.AddInt64(&counter, 1)
 			}
-		}(i)
+		}()
 	}
 	wg.Wait()
-	fmt.Println("execution time: ", time.Since(before))
-	fmt.Println("done")
+
+	fmt.Println("Execution time:", time.Since(start).Minutes())
+	// fmt.Println("Threads executed:", counter)
 }
 
 func WrapDB() *sqlx.DB {
