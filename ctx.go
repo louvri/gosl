@@ -7,6 +7,11 @@ type InternalContext struct {
 	properites map[Gosl_Key]any
 }
 
+type Context struct {
+	Data any
+	Ctx  context.Context
+}
+
 func Hijack(ctx context.Context) *InternalContext {
 	primary := ctx.Value(PRIMARY_SQL_KEY)
 	if primary == nil {
