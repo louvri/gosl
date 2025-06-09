@@ -8,7 +8,7 @@ import (
 )
 
 type Kit interface {
-	RunInTransaction(ctx context.Context, handler func(ctx context.Context) (context.Context, error)) (context.Context, error)
+	RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error
 	ContextSwitch(ctx context.Context, key interface{}) (context.Context, error)
 	ContextReset(ctx context.Context) (context.Context, error)
 }
@@ -24,59 +24,70 @@ type stack struct {
 type kit struct {
 }
 
-func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Context) (context.Context, error)) (context.Context, error) {
+func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error {
 	var err error
 	level := 1
-	//inject
+
+	// Inject internal context
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
 	if !ok {
 		_ctx = Hijack(ctx)
 	}
 
+	// Determine transaction level
 	depth, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(int)
 	if ok && depth > 0 {
 		level = depth + 1
 	}
+
+	// Start transaction
 	ctx, err = transact(ctx, level)
 	if err != nil {
-		return ctx, err
+		return err
 	}
-	ctx, err = handler(ctx)
-	// re-inject
-	_ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
-	if !ok {
-		_ctx = Hijack(ctx)
-	}
-	stacks, ok := _ctx.Get(SYSTEM_STACK).([]stack)
-	if !ok {
-		return ctx, errors.New("no active transaction")
-	}
+
+	// Execute handler
+	err = handler(ctx)
+
+	// Rollback if there was an error
 	if err != nil {
-		for _, stck := range stacks {
-			for _, tx := range stck.Transactions {
-				_ = tx.Rollback()
-			}
-		}
-		return ctx, err
-	} else if level == 1 {
-		for _, stck := range stacks {
-			for _, tx := range stck.Transactions {
-				err = tx.Commit()
-				if err != nil {
-					break
+		_ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
+		if ok {
+			stacks, ok := _ctx.Get(SYSTEM_STACK).([]stack)
+			if ok {
+				for _, stck := range stacks {
+					for _, tx := range stck.Transactions {
+						_ = tx.Rollback()
+					}
 				}
 			}
 		}
-		if err != nil {
-			for _, stck := range stacks {
-				for _, tx := range stck.Transactions {
-					_ = tx.Rollback()
+		return err
+	}
+
+	// Commit if no error and at top level
+	if level == 1 {
+		_ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
+		if ok {
+			stacks, ok := _ctx.Get(SYSTEM_STACK).([]stack)
+			if ok {
+				for _, stck := range stacks {
+					for _, tx := range stck.Transactions {
+						err = tx.Commit()
+						if err != nil {
+							// Rollback on commit failure
+							for _, tx := range stck.Transactions {
+								_ = tx.Rollback()
+							}
+							return err
+						}
+					}
 				}
 			}
-			return ctx, err
 		}
 	}
-	return ctx, nil
+
+	return nil
 }
 
 func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, error) {
