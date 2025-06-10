@@ -8,7 +8,7 @@ import (
 )
 
 type Kit interface {
-	RunInTransaction(ctx context.Context, handler func(ctx context.Context) (context.Context, error)) (context.Context, error)
+	RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error
 	ContextSwitch(ctx context.Context, key interface{}) (context.Context, error)
 	ContextReset(ctx context.Context) (context.Context, error)
 }
@@ -24,7 +24,7 @@ type stack struct {
 type kit struct {
 }
 
-func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Context) (context.Context, error)) (context.Context, error) {
+func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error {
 	var err error
 	level := 1
 	//inject
@@ -33,15 +33,19 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 		_ctx = Hijack(ctx)
 	}
 
-	depth, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(int)
-	if ok && depth > 0 {
-		level = depth + 1
+	var depth int
+	ref, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(*int)
+	if ok && ref != nil {
+		depth = *ref
+		if depth > 0 {
+			level = depth + 1
+		}
 	}
 	ctx, err = transact(ctx, level)
 	if err != nil {
-		return ctx, err
+		return err
 	}
-	ctx, err = handler(ctx)
+	err = handler(ctx)
 	// re-inject
 	_ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
 	if !ok {
@@ -49,7 +53,7 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 	}
 	stacks, ok := _ctx.Get(SYSTEM_STACK).([]stack)
 	if !ok {
-		return ctx, errors.New("no active transaction")
+		return errors.New("no active transaction")
 	}
 	if err != nil {
 		for _, stck := range stacks {
@@ -57,7 +61,7 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 				_ = tx.Rollback()
 			}
 		}
-		return ctx, err
+		return err
 	} else if level == 1 {
 		for _, stck := range stacks {
 			for _, tx := range stck.Transactions {
@@ -73,10 +77,10 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 					_ = tx.Rollback()
 				}
 			}
-			return ctx, err
+			return err
 		}
 	}
-	return ctx, nil
+	return nil
 }
 
 func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, error) {
@@ -120,16 +124,20 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 		_ctx.Set(CACHE_SQL_KEY, keys)
 	}
 	_ctx.Set(SQL_KEY, curr)
-	depth, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(int)
-	if ok && depth > 0 {
-		ctx, err = transact(ctx, depth)
-		if err != nil {
-			return ctx, err
-		}
-		// re-inject
-		_ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
-		if !ok {
-			_ctx = Hijack(ctx)
+	var depth int
+	ref, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(*int)
+	if ok && ref != nil {
+		depth = *ref
+		if depth > 0 {
+			ctx, err = transact(ctx, depth)
+			if err != nil {
+				return ctx, err
+			}
+			// re-inject
+			_ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
+			if !ok {
+				_ctx = Hijack(ctx)
+			}
 		}
 	}
 	return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
@@ -141,11 +149,15 @@ func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
 	if !ok {
 		_ctx = Hijack(ctx)
 	}
-	depth, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(int)
-	if ok && depth > 0 {
-		ctx, err = transact(ctx, depth)
-		if err != nil {
-			return ctx, err
+	var depth int
+	ref, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(*int)
+	if ok && ref != nil {
+		depth = *ref
+		if depth > 0 {
+			ctx, err = transact(ctx, depth)
+			if err != nil {
+				return ctx, err
+			}
 		}
 	}
 	_ctx.Set(CURRENT_SQL_KEY, SQL_KEY)
@@ -189,7 +201,7 @@ func transact(ctx context.Context, level int) (context.Context, error) {
 				})
 			}
 			_ctx.Set(SYSTEM_STACK, stacks)
-			_ctx.Set(SYSTEM_CALLBACK_DEPTH, level)
+			_ctx.Set(SYSTEM_CALLBACK_DEPTH, &level)
 			return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
 		} else {
 			return ctx, nil
