@@ -9,12 +9,21 @@ import (
 
 type Kit interface {
 	RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error
-	ContextSwitch(ctx context.Context, key interface{}) (context.Context, error)
-	ContextReset(ctx context.Context) (context.Context, error)
+	ContextSwitch(ctx context.Context, key interface{}) error
+	ContextReset(ctx context.Context) error
 }
 
-func New(ctx context.Context) Kit {
-	return &kit{}
+func New(ctx context.Context) (context.Context, Kit) {
+	base := SetBase(ctx)
+	if exists := ctx.Value(INTERNAL_CONTEXT); exists != nil {
+		if internal, ok := exists.(*InternalContext); !ok || internal == nil {
+			ctx = context.WithValue(ctx, INTERNAL_CONTEXT, base)
+		}
+	} else {
+		exists = base
+		ctx = context.WithValue(ctx, INTERNAL_CONTEXT, exists)
+	}
+	return ctx, &kit{}
 }
 
 type stack struct {
@@ -29,7 +38,7 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 	level := 1
 	//inject
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
-	if !ok {
+	if !ok || _ctx.Base() == nil || _ctx.IsPropertiesNill() {
 		_ctx = Hijack(ctx)
 	}
 
@@ -41,7 +50,7 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 			level = depth + 1
 		}
 	}
-	ctx, err = transact(ctx, level)
+	err = transact(ctx, level)
 	if err != nil {
 		return err
 	}
@@ -83,11 +92,11 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 	return nil
 }
 
-func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, error) {
+func (k *kit) ContextSwitch(ctx context.Context, key any) error {
 	var err error
 	var curr *Queryable
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
-	if !ok {
+	if !ok || _ctx.Base() == nil || _ctx.IsPropertiesNill() {
 		_ctx = Hijack(ctx)
 	}
 	_ctx.Set(CURRENT_SQL_KEY, key)
@@ -129,9 +138,9 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 	if ok && ref != nil {
 		depth = *ref
 		if depth > 0 {
-			ctx, err = transact(ctx, depth)
+			err = transact(ctx, depth)
 			if err != nil {
-				return ctx, err
+				return err
 			}
 			// re-inject
 			_ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
@@ -140,13 +149,19 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 			}
 		}
 	}
-	return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
+	if exist := ctx.Value(INTERNAL_CONTEXT); exist != nil {
+		if tmp, ok := exist.(*InternalContext); ok {
+			tmp = _ctx
+			_ = context.WithValue(ctx, INTERNAL_CONTEXT, tmp)
+		}
+	}
+	return nil
 }
 
-func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
+func (k *kit) ContextReset(ctx context.Context) error {
 	var err error
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
-	if !ok {
+	if !ok || _ctx.Base() == nil || _ctx.IsPropertiesNill() {
 		_ctx = Hijack(ctx)
 	}
 	var depth int
@@ -154,20 +169,26 @@ func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
 	if ok && ref != nil {
 		depth = *ref
 		if depth > 0 {
-			ctx, err = transact(ctx, depth)
+			err = transact(ctx, depth)
 			if err != nil {
-				return ctx, err
+				return err
 			}
 		}
 	}
 	_ctx.Set(CURRENT_SQL_KEY, SQL_KEY)
 	_ctx.Set(SQL_KEY, _ctx.Get(PRIMARY_SQL_KEY))
-	return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
+	if exist := ctx.Value(INTERNAL_CONTEXT); exist != nil {
+		if tmp, ok := exist.(*InternalContext); ok {
+			tmp = _ctx
+			_ = context.WithValue(ctx, INTERNAL_CONTEXT, tmp)
+		}
+	}
+	return nil
 }
 
-func transact(ctx context.Context, level int) (context.Context, error) {
+func transact(ctx context.Context, level int) error {
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
-	if !ok {
+	if !ok || _ctx.Base() == nil || _ctx.IsPropertiesNill() {
 		_ctx = Hijack(ctx)
 	}
 	if queryable, ok := _ctx.Get(SQL_KEY).(*Queryable); ok {
@@ -175,7 +196,7 @@ func transact(ctx context.Context, level int) (context.Context, error) {
 			var tx *sqlx.Tx
 			tx, err := queryable.db.Beginx()
 			if err != nil {
-				return ctx, err
+				return err
 			}
 			con := make(map[string]any)
 			con["db"] = queryable.db
@@ -202,12 +223,18 @@ func transact(ctx context.Context, level int) (context.Context, error) {
 			}
 			_ctx.Set(SYSTEM_STACK, stacks)
 			_ctx.Set(SYSTEM_CALLBACK_DEPTH, &level)
-			return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
+			if exist := ctx.Value(INTERNAL_CONTEXT); exist != nil {
+				if tmp, ok := exist.(*InternalContext); ok {
+					tmp = _ctx
+					_ = context.WithValue(ctx, INTERNAL_CONTEXT, tmp)
+				}
+			}
+			return nil
 		} else {
-			return ctx, nil
+			return nil
 		}
 	}
-	return ctx, errors.New("key is not active")
+	return errors.New("key is not active")
 }
 
 func QueryableFromContext(ctx context.Context) *Queryable {

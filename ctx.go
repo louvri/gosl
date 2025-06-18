@@ -7,9 +7,11 @@ type InternalContext struct {
 	properites map[Gosl_Key]any
 }
 
-type Context struct {
-	Data any
-	Ctx  context.Context
+func SetBase(ctx context.Context) *InternalContext {
+	return &InternalContext{
+		base:       ctx,
+		properites: make(map[Gosl_Key]any),
+	}
 }
 
 func Hijack(ctx context.Context) *InternalContext {
@@ -17,17 +19,32 @@ func Hijack(ctx context.Context) *InternalContext {
 	if primary == nil {
 		primary = ctx.Value(SQL_KEY)
 	}
-	return &InternalContext{
-		base: ctx,
-		properites: map[Gosl_Key]any{
-			SQL_KEY:               ctx.Value(SQL_KEY),
-			CACHE_SQL_KEY:         ctx.Value(CACHE_SQL_KEY),
-			CURRENT_SQL_KEY:       ctx.Value(CURRENT_SQL_KEY),
-			PRIMARY_SQL_KEY:       primary,
-			SYSTEM_STACK:          ctx.Value(SYSTEM_STACK),
-			SYSTEM_CALLBACK_DEPTH: ctx.Value(SYSTEM_CALLBACK_DEPTH),
-		},
+	existing := ctx.Value(INTERNAL_CONTEXT)
+
+	if tmp, ok := existing.(*InternalContext); ok {
+		tmp.SetBase(ctx)
+		tmp.Set(SQL_KEY, ctx.Value(SQL_KEY))
+		tmp.Set(CACHE_SQL_KEY, ctx.Value(CACHE_SQL_KEY))
+		tmp.Set(CURRENT_SQL_KEY, ctx.Value(CURRENT_SQL_KEY))
+		tmp.Set(PRIMARY_SQL_KEY, primary)
+		tmp.Set(SYSTEM_STACK, ctx.Value(SYSTEM_STACK))
+		tmp.Set(SYSTEM_CALLBACK_DEPTH, ctx.Value(SYSTEM_CALLBACK_DEPTH))
+		ctx = context.WithValue(ctx, INTERNAL_CONTEXT, tmp)
+	} else {
+		existing = &InternalContext{
+			base: ctx,
+			properites: map[Gosl_Key]any{
+				SQL_KEY:               ctx.Value(SQL_KEY),
+				CACHE_SQL_KEY:         ctx.Value(CACHE_SQL_KEY),
+				CURRENT_SQL_KEY:       ctx.Value(CURRENT_SQL_KEY),
+				PRIMARY_SQL_KEY:       primary,
+				SYSTEM_STACK:          ctx.Value(SYSTEM_STACK),
+				SYSTEM_CALLBACK_DEPTH: ctx.Value(SYSTEM_CALLBACK_DEPTH),
+			},
+		}
+		ctx = context.WithValue(ctx, INTERNAL_CONTEXT, existing)
 	}
+	return ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
 }
 func (i *InternalContext) Base() context.Context {
 	return i.base
@@ -48,6 +65,8 @@ func (i *InternalContext) Get(key any) any {
 	case SYSTEM_CALLBACK_DEPTH:
 		return i.properites[SYSTEM_CALLBACK_DEPTH]
 	}
+	// base := *i.base
+	// return base.Value(key)
 	return i.base.Value(key)
 }
 
@@ -66,4 +85,12 @@ func (i *InternalContext) Set(key, value any) {
 	case SYSTEM_CALLBACK_DEPTH:
 		i.properites[SYSTEM_CALLBACK_DEPTH] = value
 	}
+}
+
+func (i *InternalContext) SetBase(ctx context.Context) {
+	i.base = ctx
+}
+
+func (i *InternalContext) IsPropertiesNill() bool {
+	return len(i.properites) == 0
 }
