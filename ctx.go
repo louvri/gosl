@@ -13,21 +13,23 @@ type Context struct {
 }
 
 func Hijack(ctx context.Context) *InternalContext {
-	primary := ctx.Value(PRIMARY_SQL_KEY)
-	if primary == nil {
-		primary = ctx.Value(SQL_KEY)
+	var base *InternalContext
+	if tmp, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext); ok {
+		base = tmp
+	} else {
+		base = &InternalContext{
+			base: ctx,
+			properites: map[Gosl_Key]any{
+				SQL_KEY:               ctx.Value(SQL_KEY),
+				CACHE_SQL_KEY:         ctx.Value(CACHE_SQL_KEY),
+				CURRENT_SQL_KEY:       ctx.Value(CURRENT_SQL_KEY),
+				PRIMARY_SQL_KEY:       ctx.Value(SQL_KEY),
+				SYSTEM_STACK:          ctx.Value(SYSTEM_STACK),
+				SYSTEM_CALLBACK_DEPTH: ctx.Value(SYSTEM_CALLBACK_DEPTH),
+			},
+		}
 	}
-	return &InternalContext{
-		base: ctx,
-		properites: map[Gosl_Key]any{
-			SQL_KEY:               ctx.Value(SQL_KEY),
-			CACHE_SQL_KEY:         ctx.Value(CACHE_SQL_KEY),
-			CURRENT_SQL_KEY:       ctx.Value(CURRENT_SQL_KEY),
-			PRIMARY_SQL_KEY:       primary,
-			SYSTEM_STACK:          ctx.Value(SYSTEM_STACK),
-			SYSTEM_CALLBACK_DEPTH: ctx.Value(SYSTEM_CALLBACK_DEPTH),
-		},
-	}
+	return base
 }
 func (i *InternalContext) Base() context.Context {
 	return i.base
