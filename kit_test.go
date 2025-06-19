@@ -14,6 +14,7 @@ import (
 type TestKey int
 
 var TKey TestKey = 13
+var TKey2 TestKey = 114
 
 func TestContextSwitch(t *testing.T) {
 	ctx := context.WithValue(context.Background(),
@@ -695,6 +696,19 @@ func TestNestedRunInTransactionWithSwitchContext(t *testing.T) {
 			2*time.Minute,
 			2*time.Minute,
 		)))
+	ctx = context.WithValue(ctx,
+		TKey2,
+		gosl.NewQueryable(gosl.ConnectToDB(
+			"root",
+			"abcd",
+			"localhost",
+			"3306",
+			"testTx3",
+			1,
+			1,
+			2*time.Minute,
+			2*time.Minute,
+		)))
 
 	if err := Reset(ctx); err != nil {
 		t.Log(err.Error())
@@ -860,6 +874,12 @@ func SVC1(ctx context.Context) error {
 				return err
 			}
 		}
+		if ctx, err := kit.ContextSwitch(ctx, TKey2); err == nil {
+			err = Repo(ctx, "SWITCH2satutigabelas1")
+			if err != nil {
+				return err
+			}
+		}
 		if ctx, err := kit.ContextReset(ctx); err == nil {
 			err = Repo(ctx, "RESETsatutigabelas1")
 			if err != nil {
@@ -881,6 +901,12 @@ func SVC2(ctx context.Context) error {
 			}
 
 		}
+		if ctx, err := kit.ContextSwitch(ctx, TKey2); err == nil {
+			err = Repo(ctx, "SWITCH2satutigabelas1")
+			if err != nil {
+				return err
+			}
+		}
 		if ctx, err := kit.ContextReset(ctx); err == nil {
 			err = Repo(ctx, "RESETsatutigabelas2")
 			if err != nil {
@@ -893,24 +919,30 @@ func SVC2(ctx context.Context) error {
 }
 
 func Repo(ctx context.Context, data string) error {
-	var queryable *gosl.Queryable
-	ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
-	if ok {
-		queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
-		ctx = ictx.Base()
-	} else {
-		ref := ctx.Value(gosl.SQL_KEY)
-		if ref == nil {
-			err := errors.New("database is not initialized")
+	kit := gosl.New(ctx)
+	err := kit.RunInTransaction(ctx, func(ctx context.Context) error {
+		var queryable *gosl.Queryable
+		ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
+		if ok {
+			queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
+		} else {
+			ref := ctx.Value(gosl.SQL_KEY)
+			if ref == nil {
+				err := errors.New("database is not initialized")
+				return err
+			}
+			queryable = ref.(*gosl.Queryable)
+		}
+		_, err := queryable.ExecContext(ctx, fmt.Sprintf("INSERT INTO `hello_1` (data) VALUES('%s')", data))
+		if err != nil {
 			return err
 		}
-		queryable = ref.(*gosl.Queryable)
-	}
-	_, err := queryable.ExecContext(ctx, fmt.Sprintf("INSERT INTO `hello_1` (data) VALUES('%s')", data))
-	if err != nil {
-		return err
-	}
-	_, err = queryable.ExecContext(ctx, fmt.Sprintf("INSERT INTO `hello_2` (data) VALUES('%s')", data))
+		_, err = queryable.ExecContext(ctx, fmt.Sprintf("INSERT INTO `hello_2` (data) VALUES('%s')", data))
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
@@ -934,6 +966,32 @@ func Reset(ctx context.Context) error {
 	}
 
 	if ctx, err = kit.ContextSwitch(ctx, TKey); err == nil {
+		var queryable *gosl.Queryable
+
+		ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
+		if ok {
+			queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
+			ctx = ictx.Base()
+		} else {
+			ref := ctx.Value(gosl.SQL_KEY)
+			if ref == nil {
+				err = errors.New("database is not initialized")
+				return err
+			}
+			queryable = ref.(*gosl.Queryable)
+		}
+
+		_, err := queryable.ExecContext(ctx, "DELETE FROM `hello_1`")
+		if err != nil {
+			return err
+		}
+		_, err = queryable.ExecContext(ctx, "DELETE FROM `hello_2`")
+		if err != nil {
+			return err
+		}
+	}
+
+	if ctx, err = kit.ContextSwitch(ctx, TKey2); err == nil {
 		var queryable *gosl.Queryable
 
 		ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
