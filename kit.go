@@ -9,12 +9,19 @@ import (
 
 type Kit interface {
 	RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error
-	ContextSwitch(ctx context.Context, key interface{}) (context.Context, error)
-	ContextReset(ctx context.Context) (context.Context, error)
+	ContextSwitch(ctx context.Context, key interface{}) error
+	ContextReset(ctx context.Context) error
 }
 
-func New(ctx context.Context) Kit {
-	return &kit{}
+func New(ctx context.Context) (context.Context, Kit) {
+	if _, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext); ok {
+		return ctx, &kit{}
+	} else {
+		base := Hijack(ctx)
+		ctx = context.WithValue(ctx, INTERNAL_CONTEXT, base)
+		return ctx, &kit{}
+	}
+
 }
 
 type stack struct {
@@ -30,9 +37,8 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 	//inject
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
 	if !ok {
-		_ctx = Hijack(ctx)
+		return errors.New("failed_to_instantiate")
 	}
-
 	var depth int
 	ref, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(*int)
 	if ok && ref != nil {
@@ -83,46 +89,33 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 	return nil
 }
 
-func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, error) {
+func (k *kit) ContextSwitch(ctx context.Context, key any) error {
 	var err error
 	var curr *Queryable
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
 	if !ok {
-		_ctx = Hijack(ctx)
+		return errors.New("failed_to_instantiate")
 	}
 	_ctx.Set(CURRENT_SQL_KEY, key)
-	if tmp, ok := _ctx.Get(key).(*Queryable); ok {
-		tmp.key = key
-		curr = tmp
-	} else if tmp, ok := _ctx.Get(key).(Queryable); ok {
-		curr = &tmp
-	}
-	curr.key = key
-	if cacheKeys := _ctx.Get(CACHE_SQL_KEY); cacheKeys == nil {
-		keys := make(map[any]any)
-		if q, ok := ctx.Value(SQL_KEY).(*Queryable); !ok {
-			if q, ok = _ctx.Base().Value(SQL_KEY).(*Queryable); ok {
-				_ctx.Set(PRIMARY_SQL_KEY, q)
-			}
-		} else {
-			_ctx.Set(PRIMARY_SQL_KEY, q)
-		}
-		keys[key] = curr
-		_ctx.Set(CACHE_SQL_KEY, keys)
+	cacheKeys := _ctx.Get(CACHE_SQL_KEY)
+	var keys map[any]any
+	if cacheKeys == nil {
+		keys = make(map[any]any)
 	} else {
-		keys := cacheKeys.(map[any]any)
-		duplicate := false
-		for ckey := range keys {
-			if ckey == key {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			keys[key] = curr
-		}
-		_ctx.Set(CACHE_SQL_KEY, keys)
+		keys = cacheKeys.(map[any]any)
 	}
+
+	if tmp, ok := keys[key].(*Queryable); ok {
+		curr = tmp
+	} else {
+		if tmp, ok := _ctx.Get(key).(*Queryable); ok {
+			curr = tmp
+		} else {
+			return errors.New("not found")
+		}
+	}
+	// curr.key = key
+
 	_ctx.Set(SQL_KEY, curr)
 	var depth int
 	ref, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(*int)
@@ -131,7 +124,7 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 		if depth > 0 {
 			ctx, err = transact(ctx, depth)
 			if err != nil {
-				return ctx, err
+				return err
 			}
 			// re-inject
 			_ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
@@ -139,75 +132,94 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 				_ctx = Hijack(ctx)
 			}
 		}
+		if curr, ok := _ctx.Get(SQL_KEY).(*Queryable); ok {
+			if keys[key] != curr {
+				keys[key] = curr
+				_ctx.Set(CACHE_SQL_KEY, keys)
+			}
+
+		}
 	}
-	return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
+	return nil
 }
 
-func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
+func (k *kit) ContextReset(ctx context.Context) error {
 	var err error
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
+
 	if !ok {
-		_ctx = Hijack(ctx)
+		return errors.New("failed_to_instantiate")
 	}
+	_ctx.Set(CURRENT_SQL_KEY, SQL_KEY)
+	_ctx.Set(SQL_KEY, _ctx.Get(PRIMARY_SQL_KEY))
 	var depth int
 	ref, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(*int)
 	if ok && ref != nil {
 		depth = *ref
 		if depth > 0 {
-			ctx, err = transact(ctx, depth)
+			_, err = transact(ctx, depth)
 			if err != nil {
-				return ctx, err
+				return err
 			}
 		}
 	}
-	_ctx.Set(CURRENT_SQL_KEY, SQL_KEY)
-	_ctx.Set(SQL_KEY, _ctx.Get(PRIMARY_SQL_KEY))
-	return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
+	return nil
 }
 
 func transact(ctx context.Context, level int) (context.Context, error) {
-	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
-	if !ok {
-		_ctx = Hijack(ctx)
-	}
-	if queryable, ok := _ctx.Get(SQL_KEY).(*Queryable); ok {
-		if queryable.tx == nil {
-			var tx *sqlx.Tx
-			tx, err := queryable.db.Beginx()
-			if err != nil {
-				return ctx, err
-			}
-			con := make(map[string]any)
-			con["db"] = queryable.db
-			con["tx"] = tx
-			_ctx.Set(SQL_KEY, NewQueryable(con))
-			stacks, ok := _ctx.Get(SYSTEM_STACK).([]stack)
-			found := -1
-			for i := 0; ok && i < len(stacks); i++ {
-				if stacks[i].Level == level {
-					found = i
-					break
-				}
-			}
-			if found != -1 {
-				stacks[found].Transactions = append(stacks[found].Transactions, tx)
-			} else {
-				if !ok {
-					stacks = make([]stack, 0)
-				}
-				stacks = append(stacks, stack{
-					Level:        level,
-					Transactions: []*sqlx.Tx{tx},
-				})
-			}
-			_ctx.Set(SYSTEM_STACK, stacks)
-			_ctx.Set(SYSTEM_CALLBACK_DEPTH, &level)
-			return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
-		} else {
-			return ctx, nil
+	var ok bool
+	var _ctx *InternalContext
+	var queryable *Queryable
+
+	if _ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext); ok {
+		if queryable, ok = _ctx.Get(SQL_KEY).(*Queryable); !ok {
+			return ctx, errors.New("key is not active")
 		}
 	}
-	return ctx, errors.New("key is not active")
+
+	if queryable.tx == nil {
+		var tx *sqlx.Tx
+		tx, err := queryable.db.Beginx()
+		if err != nil {
+			return ctx, err
+		}
+		con := make(map[string]any)
+		con["db"] = queryable.db
+		con["tx"] = tx
+		newQueryable := NewQueryable(con)
+		_ctx.Set(SQL_KEY, newQueryable)
+
+		if exists := _ctx.Get(PRIMARY_SQL_KEY); exists == nil {
+			_ctx.Set(PRIMARY_SQL_KEY, newQueryable)
+		}
+
+		stacks, ok := _ctx.Get(SYSTEM_STACK).([]stack)
+		found := -1
+		for i := 0; ok && i < len(stacks); i++ {
+			if stacks[i].Level == level {
+				found = i
+				break
+			}
+		}
+		if found != -1 {
+			stacks[found].Transactions = append(stacks[found].Transactions, tx)
+		} else {
+			if !ok {
+				stacks = make([]stack, 0)
+			}
+			stacks = append(stacks, stack{
+				Level:        level,
+				Transactions: []*sqlx.Tx{tx},
+			})
+		}
+		_ctx.Set(SYSTEM_STACK, stacks)
+		_ctx.Set(SYSTEM_CALLBACK_DEPTH, &level)
+		return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
+
+	} else {
+		return ctx, nil
+	}
+
 }
 
 func QueryableFromContext(ctx context.Context) *Queryable {
