@@ -997,31 +997,31 @@ func Reset(ctx context.Context) error {
 		}
 	}
 
-	// if err = kit.ContextSwitch(ctx, TKey2); err == nil {
-	// 	var queryable *gosl.Queryable
+	if err = kit.ContextSwitch(ctx, TKey2); err == nil {
+		var queryable *gosl.Queryable
 
-	// 	ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
-	// 	if ok {
-	// 		queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
-	// 		ctx = ictx.Base()
-	// 	} else {
-	// 		ref := ctx.Value(gosl.SQL_KEY)
-	// 		if ref == nil {
-	// 			err = errors.New("database is not initialized")
-	// 			return err
-	// 		}
-	// 		queryable = ref.(*gosl.Queryable)
-	// 	}
+		ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
+		if ok {
+			queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
+			ctx = ictx.Base()
+		} else {
+			ref := ctx.Value(gosl.SQL_KEY)
+			if ref == nil {
+				err = errors.New("database is not initialized")
+				return err
+			}
+			queryable = ref.(*gosl.Queryable)
+		}
 
-	// 	_, err := queryable.ExecContext(ctx, "DELETE FROM `hello_1`")
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	_, err = queryable.ExecContext(ctx, "DELETE FROM `hello_2`")
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+		_, err := queryable.ExecContext(ctx, "DELETE FROM `hello_1`")
+		if err != nil {
+			return err
+		}
+		_, err = queryable.ExecContext(ctx, "DELETE FROM `hello_2`")
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 
