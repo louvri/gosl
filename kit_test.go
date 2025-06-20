@@ -43,12 +43,12 @@ func TestContextSwitch(t *testing.T) {
 			2*time.Minute,
 			2*time.Minute,
 		)))
-	kit := gosl.New(ctx)
-	_, err := kit.ContextSwitch(ctx, TKey)
+	ctx, kit := gosl.New(ctx)
+	err := kit.ContextSwitch(ctx, TKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = kit.ContextReset(ctx)
+	err = kit.ContextReset(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestRunInTransaction(t *testing.T) {
 			2*time.Minute,
 			2*time.Minute,
 		)))
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
 	_, err := queryable.ExecContext(ctx, "DELETE FROM `hello`")
 	if err != nil {
@@ -80,7 +80,7 @@ func TestRunInTransaction(t *testing.T) {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	ctx, err = kit.ContextReset(ctx)
+	err = kit.ContextReset(ctx)
 	if err != nil {
 		log.Fatal(err.Error())
 		t.Fail()
@@ -126,7 +126,7 @@ func TestConsecutiveRunInTransaction(t *testing.T) {
 			2*time.Minute,
 			2*time.Minute,
 		)))
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	queryable := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
 	_, err := queryable.ExecContext(ctx, "DELETE FROM `hello`")
 	if err != nil {
@@ -217,7 +217,7 @@ func TestRunInTransactionWithSwitchContext(t *testing.T) {
 			2*time.Minute,
 			2*time.Minute,
 		)))
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	var queryable *gosl.Queryable
 	queryable, ok := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
 	if !ok {
@@ -228,7 +228,7 @@ func TestRunInTransactionWithSwitchContext(t *testing.T) {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	if ctx, err := kit.ContextSwitch(ctx, TKey); err == nil {
+	if err := kit.ContextSwitch(ctx, TKey); err == nil {
 		var queryable *gosl.Queryable
 		ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
 		if ok {
@@ -241,7 +241,7 @@ func TestRunInTransactionWithSwitchContext(t *testing.T) {
 			log.Fatal(err.Error())
 			t.Fail()
 		}
-		ctx, err = kit.ContextReset(ctx)
+		err = kit.ContextReset(ctx)
 		if err != nil {
 			log.Fatal(err.Error())
 			t.Fail()
@@ -260,7 +260,7 @@ func TestRunInTransactionWithSwitchContext(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if ctx, err = kit.ContextSwitch(ctx, TKey); err != nil {
+				if err = kit.ContextSwitch(ctx, TKey); err != nil {
 					t.Fatal("failed to get queryable")
 				}
 				ictx, ok = ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
@@ -311,7 +311,7 @@ func TestNestedRunInTransaction(t *testing.T) {
 			2*time.Minute,
 			2*time.Minute,
 		)))
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	var queryable *gosl.Queryable
 	var ok bool
 	queryable, ok = ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
@@ -328,7 +328,7 @@ func TestNestedRunInTransaction(t *testing.T) {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	ctx, err = kit.ContextReset(ctx)
+	err = kit.ContextReset(ctx)
 	if err != nil {
 		log.Fatal(err.Error())
 		t.Fail()
@@ -365,7 +365,7 @@ func TestNestedRunInTransaction(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					if ctx, err = kit.ContextSwitch(ctx, TKey); err == nil {
+					if err = kit.ContextSwitch(ctx, TKey); err == nil {
 						ictx, ok = ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
 						if ok {
 							queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
@@ -402,7 +402,7 @@ func TestNestedRunInTransactionWithFailAtTheEnd(t *testing.T) {
 			2*time.Minute,
 			2*time.Minute,
 		)))
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	var queryable *gosl.Queryable
 	queryable, ok := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
 	if !ok {
@@ -418,7 +418,7 @@ func TestNestedRunInTransactionWithFailAtTheEnd(t *testing.T) {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
-	ctx, err = kit.ContextReset(ctx)
+	err = kit.ContextReset(ctx)
 	if err != nil {
 		log.Fatal(err.Error())
 		t.Fail()
@@ -495,7 +495,7 @@ func TestNestedRunInTransactionWithSwitchContextWithError(t *testing.T) {
 			2*time.Minute,
 			2*time.Minute,
 		)))
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	var queryable *gosl.Queryable
 	queryable, ok := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
 	if !ok {
@@ -512,7 +512,7 @@ func TestNestedRunInTransactionWithSwitchContextWithError(t *testing.T) {
 		t.Fail()
 	}
 
-	if ctx, err = kit.ContextSwitch(ctx, TKey); err == nil {
+	if err = kit.ContextSwitch(ctx, TKey); err == nil {
 		var queryable *gosl.Queryable
 
 		ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
@@ -541,14 +541,14 @@ func TestNestedRunInTransactionWithSwitchContextWithError(t *testing.T) {
 		}
 	}
 
-	ctx, err = kit.ContextReset(ctx)
+	err = kit.ContextReset(ctx)
 	if err != nil {
 		log.Fatal(err.Error())
 		t.Fail()
 	}
 
 	service1 := func(ctx context.Context) error {
-		kit := gosl.New(ctx)
+		ctx, kit := gosl.New(ctx)
 		err := kit.RunInTransaction(ctx, func(ctx context.Context) error {
 			var queryable *gosl.Queryable
 			ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
@@ -572,9 +572,9 @@ func TestNestedRunInTransactionWithSwitchContextWithError(t *testing.T) {
 	}
 
 	service2 := func(ctx context.Context) error {
-		kit := gosl.New(ctx)
+		ctx, kit := gosl.New(ctx)
 		err := kit.RunInTransaction(ctx, func(ctx context.Context) error {
-			if ctx, err = kit.ContextSwitch(ctx, TKey); err == nil {
+			if err = kit.ContextSwitch(ctx, TKey); err == nil {
 				var queryable *gosl.Queryable
 				ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
 				if ok {
@@ -616,7 +616,7 @@ func TestNestedRunInTransactionWithSwitchContextWithError(t *testing.T) {
 				return err
 			}
 
-			ctx, err = kit.ContextReset(ctx)
+			err = kit.ContextReset(ctx)
 			if err != nil {
 				log.Fatal(err.Error())
 				t.Fail()
@@ -805,16 +805,16 @@ func TestNestedRunInTransactionWithSwitchContextAndErrorConsecutive(t *testing.T
 }
 
 func SVC2Error(ctx context.Context) (context.Context, error) {
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	err := kit.RunInTransaction(ctx, func(ctx context.Context) error {
-		if ctx, err := kit.ContextSwitch(ctx, TKey); err == nil {
+		if err := kit.ContextSwitch(ctx, TKey); err == nil {
 			err = Repo(ctx, "SWITCHsatutigabelas2")
 			if err != nil {
 				return err
 			}
 
 		}
-		if ctx, err := kit.ContextReset(ctx); err == nil {
+		if err := kit.ContextReset(ctx); err == nil {
 			err = Repo(ctx, "RESETsatutigabelas2")
 			if err != nil {
 				return err
@@ -826,7 +826,7 @@ func SVC2Error(ctx context.Context) (context.Context, error) {
 }
 
 func EPWError(ctx context.Context) error {
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	err := kit.RunInTransaction(
 		ctx,
 		func(ctx context.Context) error {
@@ -846,7 +846,13 @@ func EPWError(ctx context.Context) error {
 }
 
 func EP(ctx context.Context) error {
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
+
+	_, ok := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
+	if !ok {
+		return errors.New("sql not initiated")
+	}
+
 	err := kit.RunInTransaction(
 		ctx,
 		func(ctx context.Context) error {
@@ -866,21 +872,21 @@ func EP(ctx context.Context) error {
 }
 
 func SVC1(ctx context.Context) error {
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	err := kit.RunInTransaction(ctx, func(ctx context.Context) error {
-		if ctx, err := kit.ContextSwitch(ctx, TKey); err == nil {
+		if err := kit.ContextSwitch(ctx, TKey); err == nil {
 			err = Repo(ctx, "SWITCHsatutigabelas1")
 			if err != nil {
 				return err
 			}
 		}
-		if ctx, err := kit.ContextSwitch(ctx, TKey2); err == nil {
+		if err := kit.ContextSwitch(ctx, TKey2); err == nil {
 			err = Repo(ctx, "SWITCH2satutigabelas1")
 			if err != nil {
 				return err
 			}
 		}
-		if ctx, err := kit.ContextReset(ctx); err == nil {
+		if err := kit.ContextReset(ctx); err == nil {
 			err = Repo(ctx, "RESETsatutigabelas1")
 			if err != nil {
 				return err
@@ -892,22 +898,22 @@ func SVC1(ctx context.Context) error {
 }
 
 func SVC2(ctx context.Context) error {
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	err := kit.RunInTransaction(ctx, func(ctx context.Context) error {
-		if ctx, err := kit.ContextSwitch(ctx, TKey); err == nil {
+		if err := kit.ContextSwitch(ctx, TKey); err == nil {
 			err = Repo(ctx, "SWITCHsatutigabelas2")
 			if err != nil {
 				return nil
 			}
 
 		}
-		if ctx, err := kit.ContextSwitch(ctx, TKey2); err == nil {
+		if err := kit.ContextSwitch(ctx, TKey2); err == nil {
 			err = Repo(ctx, "SWITCH2satutigabelas1")
 			if err != nil {
 				return err
 			}
 		}
-		if ctx, err := kit.ContextReset(ctx); err == nil {
+		if err := kit.ContextReset(ctx); err == nil {
 			err = Repo(ctx, "RESETsatutigabelas2")
 			if err != nil {
 				return err
@@ -919,7 +925,7 @@ func SVC2(ctx context.Context) error {
 }
 
 func Repo(ctx context.Context, data string) error {
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	err := kit.RunInTransaction(ctx, func(ctx context.Context) error {
 		var queryable *gosl.Queryable
 		ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
@@ -950,7 +956,7 @@ func Repo(ctx context.Context, data string) error {
 }
 
 func Reset(ctx context.Context) error {
-	kit := gosl.New(ctx)
+	ctx, kit := gosl.New(ctx)
 	var queryable *gosl.Queryable
 	queryable, ok := ctx.Value(gosl.SQL_KEY).(*gosl.Queryable)
 	if !ok {
@@ -965,7 +971,7 @@ func Reset(ctx context.Context) error {
 		return err
 	}
 
-	if ctx, err = kit.ContextSwitch(ctx, TKey); err == nil {
+	if err = kit.ContextSwitch(ctx, TKey); err == nil {
 		var queryable *gosl.Queryable
 
 		ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
@@ -991,31 +997,31 @@ func Reset(ctx context.Context) error {
 		}
 	}
 
-	if ctx, err = kit.ContextSwitch(ctx, TKey2); err == nil {
-		var queryable *gosl.Queryable
+	// if err = kit.ContextSwitch(ctx, TKey2); err == nil {
+	// 	var queryable *gosl.Queryable
 
-		ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
-		if ok {
-			queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
-			ctx = ictx.Base()
-		} else {
-			ref := ctx.Value(gosl.SQL_KEY)
-			if ref == nil {
-				err = errors.New("database is not initialized")
-				return err
-			}
-			queryable = ref.(*gosl.Queryable)
-		}
+	// 	ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
+	// 	if ok {
+	// 		queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
+	// 		ctx = ictx.Base()
+	// 	} else {
+	// 		ref := ctx.Value(gosl.SQL_KEY)
+	// 		if ref == nil {
+	// 			err = errors.New("database is not initialized")
+	// 			return err
+	// 		}
+	// 		queryable = ref.(*gosl.Queryable)
+	// 	}
 
-		_, err := queryable.ExecContext(ctx, "DELETE FROM `hello_1`")
-		if err != nil {
-			return err
-		}
-		_, err = queryable.ExecContext(ctx, "DELETE FROM `hello_2`")
-		if err != nil {
-			return err
-		}
-	}
+	// 	_, err := queryable.ExecContext(ctx, "DELETE FROM `hello_1`")
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	_, err = queryable.ExecContext(ctx, "DELETE FROM `hello_2`")
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	return nil
 

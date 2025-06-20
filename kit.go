@@ -9,12 +9,19 @@ import (
 
 type Kit interface {
 	RunInTransaction(ctx context.Context, handler func(ctx context.Context) error) error
-	ContextSwitch(ctx context.Context, key interface{}) (context.Context, error)
-	ContextReset(ctx context.Context) (context.Context, error)
+	ContextSwitch(ctx context.Context, key interface{}) error
+	ContextReset(ctx context.Context) error
 }
 
-func New(ctx context.Context) Kit {
-	return &kit{}
+func New(ctx context.Context) (context.Context, Kit) {
+	if _, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext); ok {
+		return ctx, &kit{}
+	} else {
+		base := Hijack(ctx)
+		ctx = context.WithValue(ctx, INTERNAL_CONTEXT, base)
+		return ctx, &kit{}
+	}
+
 }
 
 type stack struct {
@@ -30,9 +37,8 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 	//inject
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
 	if !ok {
-		_ctx = Hijack(ctx)
+		return errors.New("failed_to_instantiate")
 	}
-
 	var depth int
 	ref, ok := _ctx.Get(SYSTEM_CALLBACK_DEPTH).(*int)
 	if ok && ref != nil {
@@ -83,12 +89,12 @@ func (k *kit) RunInTransaction(ctx context.Context, handler func(ctx context.Con
 	return nil
 }
 
-func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, error) {
+func (k *kit) ContextSwitch(ctx context.Context, key any) error {
 	var err error
 	var curr *Queryable
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
 	if !ok {
-		_ctx = Hijack(ctx)
+		return errors.New("failed_to_instantiate")
 	}
 	_ctx.Set(CURRENT_SQL_KEY, key)
 	cacheKeys := _ctx.Get(CACHE_SQL_KEY)
@@ -105,7 +111,7 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 		if tmp, ok := _ctx.Get(key).(*Queryable); ok {
 			curr = tmp
 		} else {
-			return ctx, errors.New("not found")
+			return errors.New("not found")
 		}
 	}
 	// curr.key = key
@@ -118,7 +124,7 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 		if depth > 0 {
 			ctx, err = transact(ctx, depth)
 			if err != nil {
-				return ctx, err
+				return err
 			}
 			// re-inject
 			_ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
@@ -134,14 +140,15 @@ func (k *kit) ContextSwitch(ctx context.Context, key any) (context.Context, erro
 
 		}
 	}
-	return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
+	return nil
 }
 
-func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
+func (k *kit) ContextReset(ctx context.Context) error {
 	var err error
 	_ctx, ok := ctx.Value(INTERNAL_CONTEXT).(*InternalContext)
+
 	if !ok {
-		_ctx = Hijack(ctx)
+		return errors.New("failed_to_instantiate")
 	}
 	_ctx.Set(CURRENT_SQL_KEY, SQL_KEY)
 	_ctx.Set(SQL_KEY, _ctx.Get(PRIMARY_SQL_KEY))
@@ -150,28 +157,21 @@ func (k *kit) ContextReset(ctx context.Context) (context.Context, error) {
 	if ok && ref != nil {
 		depth = *ref
 		if depth > 0 {
-			ctx, err = transact(ctx, depth)
+			_, err = transact(ctx, depth)
 			if err != nil {
-				return ctx, err
+				return err
 			}
 		}
 	}
-	return context.WithValue(context.Background(), INTERNAL_CONTEXT, _ctx), nil
+	return nil
 }
 
 func transact(ctx context.Context, level int) (context.Context, error) {
 	var ok bool
 	var _ctx *InternalContext
 	var queryable *Queryable
-	var first bool
 
 	if _ctx, ok = ctx.Value(INTERNAL_CONTEXT).(*InternalContext); ok {
-		if queryable, ok = _ctx.Get(SQL_KEY).(*Queryable); !ok {
-			return ctx, errors.New("key is not active")
-		}
-	} else {
-		first = true
-		_ctx = Hijack(ctx)
 		if queryable, ok = _ctx.Get(SQL_KEY).(*Queryable); !ok {
 			return ctx, errors.New("key is not active")
 		}
@@ -188,9 +188,11 @@ func transact(ctx context.Context, level int) (context.Context, error) {
 		con["tx"] = tx
 		newQueryable := NewQueryable(con)
 		_ctx.Set(SQL_KEY, newQueryable)
-		if first {
+
+		if exists := _ctx.Get(PRIMARY_SQL_KEY); exists == nil {
 			_ctx.Set(PRIMARY_SQL_KEY, newQueryable)
 		}
+
 		stacks, ok := _ctx.Get(SYSTEM_STACK).([]stack)
 		found := -1
 		for i := 0; ok && i < len(stacks); i++ {
