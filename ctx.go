@@ -23,7 +23,7 @@ func Hijack(ctx context.Context) *InternalContext {
 				SQL_KEY:               ctx.Value(SQL_KEY),
 				CACHE_SQL_KEY:         ctx.Value(CACHE_SQL_KEY),
 				CURRENT_SQL_KEY:       ctx.Value(CURRENT_SQL_KEY),
-				PRIMARY_SQL_KEY:       nil,
+				PRIMARY_SQL_KEY:       ctx.Value(SQL_KEY),
 				SYSTEM_STACK:          ctx.Value(SYSTEM_STACK),
 				SYSTEM_CALLBACK_DEPTH: ctx.Value(SYSTEM_CALLBACK_DEPTH),
 			},

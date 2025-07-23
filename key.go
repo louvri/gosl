@@ -9,3 +9,4 @@ const PRIMARY_SQL_KEY Gosl_Key = -2000
 const SYSTEM_STACK Gosl_Key = -101
 const SYSTEM_CALLBACK_DEPTH Gosl_Key = -102
 const INTERNAL_CONTEXT Gosl_Key = -103
+const DONT_PRINT_SQL_ERROR = -2001

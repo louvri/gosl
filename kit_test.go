@@ -579,7 +579,7 @@ func TestNestedRunInTransactionWithSwitchContextWithError(t *testing.T) {
 				ictx, ok := ctx.Value(gosl.INTERNAL_CONTEXT).(*gosl.InternalContext)
 				if ok {
 					queryable = ictx.Get(gosl.SQL_KEY).(*gosl.Queryable)
-					ctx = ictx.Base()
+					//ctx = ictx.Base()
 				} else {
 					ref := ctx.Value(gosl.SQL_KEY)
 					if ref == nil {
@@ -835,7 +835,7 @@ func EPWError(ctx context.Context) error {
 				return err
 			}
 
-			ctx, err = SVC2Error(ctx)
+			_, err = SVC2Error(ctx)
 			if err != nil {
 				return err
 			}
