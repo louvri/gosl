@@ -20,6 +20,7 @@ type QueryParams struct {
 	BetweenTime          map[string][]time.Time
 	UseDistinct          bool
 	UsePreparedStatement bool
+	RetrieveAsMap        bool
 }
 
 func (q *QueryParams) Clone() QueryParams {
