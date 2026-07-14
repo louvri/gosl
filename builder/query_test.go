@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -71,7 +72,7 @@ func TestJoin(t *testing.T) {
 func TestUpsert(t *testing.T) {
 	query, values := New().From("`hello_world`", "a").Upsert(map[string]interface{}{
 		"`value`": "name",
-		"`key`":   "`key` + 1.2 ",
+		"`key`":   Raw("`key` + 1.2 "),
 	}).Build()
 	if len(query) == 0 {
 		t.Fatal("query is empty")
@@ -79,7 +80,7 @@ func TestUpsert(t *testing.T) {
 	t.Log(query, values)
 	query, values = New().From("`hello_world`", "a").Upsert(map[string]interface{}{
 		"`value`": "name",
-		"`key`":   "lower(`key`)",
+		"`key`":   Raw("lower(`key`)"),
 	}).Build()
 	t.Log(query, values)
 	if len(query) == 0 {
@@ -92,5 +93,92 @@ func TestUpsert(t *testing.T) {
 	t.Log(query, values)
 	if len(query) == 0 {
 		t.Fatal("query is empty")
+	}
+}
+
+// TestUpsertBacktickInValueIsBound guards against a regression where a data
+// value containing a literal backtick was interpolated verbatim into the SQL
+// statement instead of being bound as a parameter. That behavior produced the
+// MySQL 1064 syntax error observed in production and was also a SQL injection
+// vector: any user-supplied string containing "`" could inject SQL.
+func TestUpsertBacktickInValueIsBound(t *testing.T) {
+	payload := "QA Courier C`manggis "
+	query, values := New().From("`mps_item_tracker`").Upsert(map[string]interface{}{
+		"`operation_user_name`": payload,
+		"`order_no`":            "N1",
+	}).Build()
+
+	if strings.Contains(query, payload) {
+		t.Fatalf("value with backtick was interpolated into SQL: %q", query)
+	}
+	found := false
+	for _, v := range values {
+		if s, ok := v.(string); ok && s == payload {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("value with backtick was not bound as parameter: values=%v", values)
+	}
+}
+
+func TestUpdateBacktickInValueIsBound(t *testing.T) {
+	payload := "raw`data"
+	query, values := New().From("`t`").Update(map[string]interface{}{
+		"`name`": payload,
+	}).Equal("id", 1).Build()
+
+	if strings.Contains(query, payload) {
+		t.Fatalf("value with backtick was interpolated into SQL: %q", query)
+	}
+	found := false
+	for _, v := range values {
+		if s, ok := v.(string); ok && s == payload {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("value with backtick was not bound as parameter: values=%v", values)
+	}
+}
+
+func TestCompareBacktickInValueIsBound(t *testing.T) {
+	payload := "attacker`;--"
+	query, values := New().Select("*").From("`t`").Compare([]Condition{{
+		Key:      "name",
+		Operator: "=",
+		Value:    payload,
+	}}).Build()
+
+	if strings.Contains(query, payload) {
+		t.Fatalf("condition value with backtick was interpolated into SQL: %q", query)
+	}
+	found := false
+	for _, v := range values {
+		if s, ok := v.(string); ok && s == payload {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("condition value with backtick was not bound as parameter: values=%v", values)
+	}
+}
+
+func TestUpsertRawIsInlined(t *testing.T) {
+	query, values := New().From("`counter_t`").Upsert(map[string]interface{}{
+		"`counter`": Raw("`counter` + 1"),
+		"`name`":    "widget",
+	}).Build()
+
+	if !strings.Contains(query, "`counter` + 1") {
+		t.Fatalf("Raw fragment was not inlined: %q", query)
+	}
+	for _, v := range values {
+		if s, ok := v.(string); ok && strings.Contains(s, "`counter`") {
+			t.Fatalf("Raw fragment was bound as parameter instead of inlined: %v", values)
+		}
 	}
 }

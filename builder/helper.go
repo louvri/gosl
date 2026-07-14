@@ -2,7 +2,6 @@ package builder
 
 import (
 	"reflect"
-	"regexp"
 	"strings"
 )
 
@@ -57,8 +56,8 @@ func buildConditionStatement(condition Condition) (string, interface{}) {
 	if condition.Value == nil || condition.Value == "null" {
 		s.WriteString("null")
 		return s.String(), nil
-	} else if tmp, ok := condition.Value.(string); ok && strings.Contains(tmp, "`") {
-		s.WriteString(tmp)
+	} else if raw, ok := asRawSQL(condition.Value); ok {
+		s.WriteString(raw)
 		return s.String(), nil
 	} else {
 		s.WriteString("?")
@@ -126,14 +125,10 @@ func buildUpdate(table string, data map[string]interface{}, columns []string) (s
 			if placeholder.Len() > 0 {
 				placeholder.WriteString(",")
 			}
-			isAStatement := false
-			if tmp, ok := value.(string); ok {
-				isAStatement = strings.Contains(tmp, "`")
-			}
-			if isAStatement {
+			if raw, ok := asRawSQL(value); ok {
 				placeholder.WriteString(key)
 				placeholder.WriteString("=")
-				placeholder.WriteString(value.(string))
+				placeholder.WriteString(raw)
 			} else {
 				placeholder.WriteString(key)
 				placeholder.WriteString("=")
@@ -180,70 +175,41 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 		if !strings.Contains(key, "`") {
 			key = "`" + key + "`"
 		}
-		if value != nil {
-			if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
-				if fields.Len() > 0 {
-					fields.WriteString(",")
-					insert.WriteString(",")
-				}
-				fields.WriteString(key)
-				insert.WriteString("?")
-				insertValues = append(insertValues, value)
-			} else {
-				strValue := value.(string)
-				if fields.Len() > 0 {
-					fields.WriteString(",")
-					insert.WriteString(",")
-				}
-				fields.WriteString(key)
-				number, _ := regexp.Compile(`-?\d+(\.\d+)?`)
-				numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
-				if len(numbers) > 0 {
-					insert.WriteString("?")
-					insertValues = append(insertValues, strings.Join(numbers, ""))
-				} else {
-					insert.WriteString(strValue)
-				}
-			}
-		} else {
-			if fields.Len() > 0 {
-				fields.WriteString(",")
-				insert.WriteString(",")
-			}
-			fields.WriteString(key)
-			insert.WriteString("NULL")
+		if fields.Len() > 0 {
+			fields.WriteString(",")
+			insert.WriteString(",")
 		}
+		fields.WriteString(key)
+		if value == nil {
+			insert.WriteString("NULL")
+			return
+		}
+		if raw, ok := asRawSQL(value); ok {
+			insert.WriteString(raw)
+			return
+		}
+		insert.WriteString("?")
+		insertValues = append(insertValues, value)
 	}
 	buildUpdate := func(key string, value interface{}) {
 		if !strings.Contains(key, "`") {
 			key = "`" + key + "`"
 		}
-		if value != nil {
-			if update.Len() > 0 {
-				update.WriteString(",")
-			}
-			isAStatement := false
-			if tmp, ok := value.(string); ok {
-				isAStatement = strings.Contains(tmp, "`")
-			}
-			if isAStatement {
-				update.WriteString(key)
-				update.WriteString("=")
-				update.WriteString(value.(string))
-			} else {
-				update.WriteString(key)
-				update.WriteString("=")
-				update.WriteString("?")
-				updateValues = append(updateValues, value)
-			}
-		} else {
-			if update.Len() > 0 {
-				update.WriteString(",")
-			}
-			update.WriteString(key)
-			update.WriteString("=")
-			update.WriteString("NULL")
+		if update.Len() > 0 {
+			update.WriteString(",")
 		}
+		update.WriteString(key)
+		update.WriteString("=")
+		if value == nil {
+			update.WriteString("NULL")
+			return
+		}
+		if raw, ok := asRawSQL(value); ok {
+			update.WriteString(raw)
+			return
+		}
+		update.WriteString("?")
+		updateValues = append(updateValues, value)
 	}
 	if len(columns) > 0 {
 		for _, column := range columns {
