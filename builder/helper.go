@@ -57,8 +57,8 @@ func buildConditionStatement(condition Condition) (string, interface{}) {
 	if condition.Value == nil || condition.Value == "null" {
 		s.WriteString("null")
 		return s.String(), nil
-	} else if tmp, ok := condition.Value.(string); ok && strings.Contains(tmp, "`") {
-		s.WriteString(tmp)
+	} else if expr, ok := condition.Value.(Expr); ok {
+		s.WriteString(string(expr))
 		return s.String(), nil
 	} else {
 		s.WriteString("?")
@@ -126,14 +126,10 @@ func buildUpdate(table string, data map[string]interface{}, columns []string) (s
 			if placeholder.Len() > 0 {
 				placeholder.WriteString(",")
 			}
-			isAStatement := false
-			if tmp, ok := value.(string); ok {
-				isAStatement = strings.Contains(tmp, "`")
-			}
-			if isAStatement {
+			if expr, ok := value.(Expr); ok {
 				placeholder.WriteString(key)
 				placeholder.WriteString("=")
-				placeholder.WriteString(value.(string))
+				placeholder.WriteString(string(expr))
 			} else {
 				placeholder.WriteString(key)
 				placeholder.WriteString("=")
@@ -181,7 +177,7 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 			key = "`" + key + "`"
 		}
 		if value != nil {
-			if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
+			if _, ok := value.(Expr); !ok {
 				if fields.Len() > 0 {
 					fields.WriteString(",")
 					insert.WriteString(",")
@@ -190,7 +186,7 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 				insert.WriteString("?")
 				insertValues = append(insertValues, value)
 			} else {
-				strValue := value.(string)
+				strValue := string(value.(Expr))
 				if fields.Len() > 0 {
 					fields.WriteString(",")
 					insert.WriteString(",")
@@ -222,14 +218,10 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 			if update.Len() > 0 {
 				update.WriteString(",")
 			}
-			isAStatement := false
-			if tmp, ok := value.(string); ok {
-				isAStatement = strings.Contains(tmp, "`")
-			}
-			if isAStatement {
+			if expr, ok := value.(Expr); ok {
 				update.WriteString(key)
 				update.WriteString("=")
-				update.WriteString(value.(string))
+				update.WriteString(string(expr))
 			} else {
 				update.WriteString(key)
 				update.WriteString("=")
