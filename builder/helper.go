@@ -2,8 +2,20 @@ package builder
 
 import (
 	"reflect"
+	"sort"
 	"strings"
 )
+
+// sortedKeys orders the columns written when no columns are given, so the
+// statement text is stable and an Expr sees the same earlier columns each time.
+func sortedKeys(data map[string]interface{}) []string {
+	keys := make([]string, 0, len(data))
+	for key := range data {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
 
 func buildInStatement(prop string, data interface{}) (string, []interface{}) {
 	var s strings.Builder
@@ -99,8 +111,8 @@ func buildInsert(table string, data map[string]interface{}, columns []string) (s
 			}
 		}
 	} else {
-		for key, value := range data {
-			build(key, value)
+		for _, key := range sortedKeys(data) {
+			build(key, data[key])
 		}
 	}
 	query.WriteString("INSERT INTO ")
@@ -153,8 +165,8 @@ func buildUpdate(table string, data map[string]interface{}, columns []string) (s
 			}
 		}
 	} else {
-		for key, value := range data {
-			build(key, value)
+		for _, key := range sortedKeys(data) {
+			build(key, data[key])
 		}
 	}
 	query.WriteString("UPDATE ")
@@ -239,9 +251,9 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 			}
 		}
 	} else {
-		for key, value := range data {
-			buildInsert(key, value)
-			buildUpdate(key, value)
+		for _, key := range sortedKeys(data) {
+			buildInsert(key, data[key])
+			buildUpdate(key, data[key])
 		}
 	}
 	query.WriteString("INSERT INTO ")

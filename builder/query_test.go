@@ -151,8 +151,8 @@ func TestOrderOnlyWritesIdentifiersAndDirection(t *testing.T) {
 }
 
 func TestExistsBindsConditionValueFirst(t *testing.T) {
-	inner := New().Select("1").From("`orders`", "o").Equal("o.status", "paid")
-	query, values := New().Select("*").From("`users`", "u").Equal("u.active", 1).And().
+	inner := New().Select("1").From("`orders`", "o").Equal("status", "paid")
+	query, values := New().Select("*").From("`users`", "u").Equal("active", 1).And().
 		Exists(inner, Condition{Key: "o.user_id", Operator: "=", Value: 5}).Build()
 	if !strings.Contains(query, "EXISTS (SELECT 1 FROM `orders` o WHERE o.`user_id`= ? AND ") {
 		t.Fatalf("unexpected exists: %s", query)
@@ -176,5 +176,28 @@ func TestUpsertWritesExprRawOnBothSides(t *testing.T) {
 	want := "INSERT INTO `stock`(`qty`) VALUES (`qty` - 1) ON DUPLICATE KEY UPDATE `qty`=`qty` - 1;"
 	if query != want || len(values) != 0 {
 		t.Fatalf("got %s %v, want %s", query, values, want)
+	}
+}
+
+func TestColumnsAreSortedWhenNoneGiven(t *testing.T) {
+	data := map[string]interface{}{
+		"total": Expr("`price` * 2"),
+		"price": 10,
+		"name":  "a",
+	}
+	for i := 0; i < 20; i++ {
+		query, values := New().From("`item`").Upsert(data).Build()
+		want := "INSERT INTO `item`(`name`,`price`,`total`) VALUES (?,?,`price` * 2) ON DUPLICATE KEY UPDATE `name`=?,`price`=?,`total`=`price` * 2;"
+		if query != want || len(values) != 4 || values[0] != "a" || values[1] != 10 {
+			t.Fatalf("got %s %v, want %s", query, values, want)
+		}
+		query, _ = New().From("`item`").Update(data).Build()
+		if query != "UPDATE `item` SET `name`=?,`price`=?,`total`=`price` * 2" {
+			t.Fatalf("unexpected update: %s", query)
+		}
+		query, _ = New().From("`item`").Insert(map[string]interface{}{"b": 1, "a": 2}).Build()
+		if query != "INSERT INTO `item`(`a`,`b`) VALUES (?,?);" {
+			t.Fatalf("unexpected insert: %s", query)
+		}
 	}
 }
