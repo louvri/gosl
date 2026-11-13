@@ -197,8 +197,12 @@ func (b *builder) Exists(other Builder, condition Condition) Builder {
 	}
 	_other := other.(*builder)
 	var tmp strings.Builder
-	conditionStatement, _ := buildConditionStatement(condition)
+	conditionStatement, value := buildConditionStatement(condition)
 	tmp.WriteString(conditionStatement)
+	if value != nil {
+		// the condition leads the inner WHERE, so its value binds first
+		_other.values = append([]interface{}{value}, _other.values...)
+	}
 	if _other.whereStatement.Len() > 0 {
 		tmp.WriteString(" AND ")
 	}

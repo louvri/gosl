@@ -149,3 +149,32 @@ func TestOrderOnlyWritesIdentifiersAndDirection(t *testing.T) {
 		t.Fatalf("unexpected values: %v", values)
 	}
 }
+
+func TestExistsBindsConditionValueFirst(t *testing.T) {
+	inner := New().Select("1").From("`orders`", "o").Equal("o.status", "paid")
+	query, values := New().Select("*").From("`users`", "u").Equal("u.active", 1).And().
+		Exists(inner, Condition{Key: "o.user_id", Operator: "=", Value: 5}).Build()
+	if !strings.Contains(query, "EXISTS (SELECT 1 FROM `orders` o WHERE o.`user_id`= ? AND ") {
+		t.Fatalf("unexpected exists: %s", query)
+	}
+	if len(values) != 3 || values[0] != 1 || values[1] != 5 || values[2] != "paid" {
+		t.Fatalf("unexpected values: %v", values)
+	}
+
+	inner = New().Select("1").From("`orders`", "o")
+	query, values = New().Select("*").From("`users`", "u").
+		Exists(inner, Condition{Key: "o.user_id", Operator: "=", Value: Expr("`u`.`id`")}).Build()
+	if !strings.Contains(query, "o.`user_id`= `u`.`id`") || len(values) != 0 {
+		t.Fatalf("exists did not write expr: %s %v", query, values)
+	}
+}
+
+func TestUpsertWritesExprRawOnBothSides(t *testing.T) {
+	query, values := New().From("`stock`").Upsert(map[string]interface{}{
+		"qty": Expr("`qty` - 1"),
+	}).Build()
+	want := "INSERT INTO `stock`(`qty`) VALUES (`qty` - 1) ON DUPLICATE KEY UPDATE `qty`=`qty` - 1;"
+	if query != want || len(values) != 0 {
+		t.Fatalf("got %s %v, want %s", query, values, want)
+	}
+}

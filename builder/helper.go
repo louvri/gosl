@@ -2,7 +2,6 @@ package builder
 
 import (
 	"reflect"
-	"regexp"
 	"strings"
 )
 
@@ -192,14 +191,7 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 					insert.WriteString(",")
 				}
 				fields.WriteString(key)
-				number, _ := regexp.Compile(`-?\d+(\.\d+)?`)
-				numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
-				if len(numbers) > 0 {
-					insert.WriteString("?")
-					insertValues = append(insertValues, strings.Join(numbers, ""))
-				} else {
-					insert.WriteString(strValue)
-				}
+				insert.WriteString(strValue)
 			}
 		} else {
 			if fields.Len() > 0 {
