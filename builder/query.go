@@ -52,6 +52,7 @@ type builder struct {
 	selectStatement strings.Builder
 	whereStatement  strings.Builder
 	orderStatement  strings.Builder
+	orderValues     []interface{}
 	groupStatement  strings.Builder
 	values          []interface{}
 	page            int
@@ -196,8 +197,12 @@ func (b *builder) Exists(other Builder, condition Condition) Builder {
 	}
 	_other := other.(*builder)
 	var tmp strings.Builder
-	conditionStatement, _ := buildConditionStatement(condition)
+	conditionStatement, value := buildConditionStatement(condition)
 	tmp.WriteString(conditionStatement)
+	if value != nil {
+		// the condition leads the inner WHERE, so its value binds first
+		_other.values = append([]interface{}{value}, _other.values...)
+	}
 	if _other.whereStatement.Len() > 0 {
 		tmp.WriteString(" AND ")
 	}
@@ -291,29 +296,25 @@ func (b *builder) Size(n int) Builder {
 	return b
 }
 func (b *builder) Order(order OrderBy) Builder {
-	if !strings.Contains(order.Column, "`") {
-		order.Column = "`" + order.Column + "`"
+	column, ok := quoteColumn(order.Column)
+	if !ok {
+		return b
 	}
 	if b.orderStatement.Len() > 0 {
 		b.orderStatement.WriteString(",")
 	}
 	if len(order.Fields) > 0 {
 		b.orderStatement.WriteString("Field(")
-		b.orderStatement.WriteString(order.Column)
-		b.orderStatement.WriteString(",")
-		for i, field := range order.Fields {
-			if i > 0 {
-				b.orderStatement.WriteString(",")
-			}
-			b.orderStatement.WriteString("'")
-			b.orderStatement.WriteString(field)
-			b.orderStatement.WriteString("'")
+		b.orderStatement.WriteString(column)
+		for _, field := range order.Fields {
+			b.orderStatement.WriteString(",?")
+			b.orderValues = append(b.orderValues, field)
 		}
 		b.orderStatement.WriteString(")")
 	} else {
-		b.orderStatement.WriteString(order.Column)
+		b.orderStatement.WriteString(column)
 		b.orderStatement.WriteString(" ")
-		b.orderStatement.WriteString(order.Direction)
+		b.orderStatement.WriteString(orderDirection(order.Direction))
 	}
 	return b
 }
@@ -381,6 +382,7 @@ func (b *builder) Reset(section string) Builder {
 		b.whereStatement.Reset()
 	case "orderby", "Orderby", "ORDERBY":
 		b.orderStatement.Reset()
+		b.orderValues = nil
 	case "table", "Table", "TABLE":
 		b.source = nil
 	}
@@ -465,7 +467,7 @@ func (b *builder) Build() (string, []interface{}) {
 			query.WriteString(" ")
 			query.WriteString(fmt.Sprintf("OFFSET %d ", b.page*b.size))
 		}
-		values = b.values
+		values = append(append(values, b.values...), b.orderValues...)
 	}
 
 	return query.String(), values

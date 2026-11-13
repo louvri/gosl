@@ -2,9 +2,20 @@ package builder
 
 import (
 	"reflect"
-	"regexp"
+	"sort"
 	"strings"
 )
+
+// sortedKeys orders the columns written when no columns are given, so the
+// statement text is stable and an Expr sees the same earlier columns each time.
+func sortedKeys(data map[string]interface{}) []string {
+	keys := make([]string, 0, len(data))
+	for key := range data {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
 
 func buildInStatement(prop string, data interface{}) (string, []interface{}) {
 	var s strings.Builder
@@ -57,8 +68,8 @@ func buildConditionStatement(condition Condition) (string, interface{}) {
 	if condition.Value == nil || condition.Value == "null" {
 		s.WriteString("null")
 		return s.String(), nil
-	} else if tmp, ok := condition.Value.(string); ok && strings.Contains(tmp, "`") {
-		s.WriteString(tmp)
+	} else if expr, ok := condition.Value.(Expr); ok {
+		s.WriteString(string(expr))
 		return s.String(), nil
 	} else {
 		s.WriteString("?")
@@ -100,8 +111,8 @@ func buildInsert(table string, data map[string]interface{}, columns []string) (s
 			}
 		}
 	} else {
-		for key, value := range data {
-			build(key, value)
+		for _, key := range sortedKeys(data) {
+			build(key, data[key])
 		}
 	}
 	query.WriteString("INSERT INTO ")
@@ -126,14 +137,10 @@ func buildUpdate(table string, data map[string]interface{}, columns []string) (s
 			if placeholder.Len() > 0 {
 				placeholder.WriteString(",")
 			}
-			isAStatement := false
-			if tmp, ok := value.(string); ok {
-				isAStatement = strings.Contains(tmp, "`")
-			}
-			if isAStatement {
+			if expr, ok := value.(Expr); ok {
 				placeholder.WriteString(key)
 				placeholder.WriteString("=")
-				placeholder.WriteString(value.(string))
+				placeholder.WriteString(string(expr))
 			} else {
 				placeholder.WriteString(key)
 				placeholder.WriteString("=")
@@ -158,8 +165,8 @@ func buildUpdate(table string, data map[string]interface{}, columns []string) (s
 			}
 		}
 	} else {
-		for key, value := range data {
-			build(key, value)
+		for _, key := range sortedKeys(data) {
+			build(key, data[key])
 		}
 	}
 	query.WriteString("UPDATE ")
@@ -181,7 +188,7 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 			key = "`" + key + "`"
 		}
 		if value != nil {
-			if str, ok := value.(string); !ok || ok && !strings.Contains(str, "`") {
+			if _, ok := value.(Expr); !ok {
 				if fields.Len() > 0 {
 					fields.WriteString(",")
 					insert.WriteString(",")
@@ -190,20 +197,13 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 				insert.WriteString("?")
 				insertValues = append(insertValues, value)
 			} else {
-				strValue := value.(string)
+				strValue := string(value.(Expr))
 				if fields.Len() > 0 {
 					fields.WriteString(",")
 					insert.WriteString(",")
 				}
 				fields.WriteString(key)
-				number, _ := regexp.Compile(`-?\d+(\.\d+)?`)
-				numbers := number.FindAllString(strings.TrimSpace(strValue), -1)
-				if len(numbers) > 0 {
-					insert.WriteString("?")
-					insertValues = append(insertValues, strings.Join(numbers, ""))
-				} else {
-					insert.WriteString(strValue)
-				}
+				insert.WriteString(strValue)
 			}
 		} else {
 			if fields.Len() > 0 {
@@ -222,14 +222,10 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 			if update.Len() > 0 {
 				update.WriteString(",")
 			}
-			isAStatement := false
-			if tmp, ok := value.(string); ok {
-				isAStatement = strings.Contains(tmp, "`")
-			}
-			if isAStatement {
+			if expr, ok := value.(Expr); ok {
 				update.WriteString(key)
 				update.WriteString("=")
-				update.WriteString(value.(string))
+				update.WriteString(string(expr))
 			} else {
 				update.WriteString(key)
 				update.WriteString("=")
@@ -255,9 +251,9 @@ func buildUpsert(table string, data map[string]interface{}, columns []string) (s
 			}
 		}
 	} else {
-		for key, value := range data {
-			buildInsert(key, value)
-			buildUpdate(key, value)
+		for _, key := range sortedKeys(data) {
+			buildInsert(key, data[key])
+			buildUpdate(key, data[key])
 		}
 	}
 	query.WriteString("INSERT INTO ")
