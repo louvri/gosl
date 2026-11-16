@@ -86,20 +86,18 @@ func buildInsert(table string, data map[string]interface{}, columns []string) (s
 		if !strings.Contains(key, "`") {
 			key = "`" + key + "`"
 		}
-		if value != nil {
-			if fields.Len() > 0 {
-				fields.WriteString(",")
-				placeholder.WriteString(",")
-			}
-			fields.WriteString(key)
+		if fields.Len() > 0 {
+			fields.WriteString(",")
+			placeholder.WriteString(",")
+		}
+		fields.WriteString(key)
+		if value == nil {
+			placeholder.WriteString("NULL")
+		} else if expr, ok := value.(Expr); ok {
+			placeholder.WriteString(string(expr))
+		} else {
 			placeholder.WriteString("?")
 			values = append(values, value)
-		} else {
-			if fields.Len() > 0 {
-				fields.WriteString(",")
-				placeholder.WriteString(",")
-			}
-			placeholder.WriteString("NULL")
 		}
 	}
 	if len(columns) > 0 {

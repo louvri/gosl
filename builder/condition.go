@@ -7,8 +7,10 @@ type Condition struct {
 }
 
 // Expr is a raw SQL fragment written into the statement unbound,
-// e.g. Expr("`stock` - 1") or Expr("lower(`key`)").
-// Every other value, including a plain string, is bound as a parameter.
+// e.g. Expr("`stock` - 1") or Expr("lower(`key`)"). It is honored in
+// Condition values (Compare, Exists) and in Insert, Update and Upsert data.
+// Everywhere else, including Equal, NotEqual and In, it is bound like any
+// other value, and every other value, including a plain string, is bound.
 // Upsert writes it raw on both sides. MySQL evaluates the columns left to
 // right, so a column the Expr refers to reads the value set earlier in the
 // same row, or on INSERT that column's default when it is not set earlier:

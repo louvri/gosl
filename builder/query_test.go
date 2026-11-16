@@ -127,6 +127,14 @@ func TestExprIsWrittenRaw(t *testing.T) {
 		t.Fatalf("update did not write expr: %s %v", query, values)
 	}
 
+	query, values = New().From("`item`").Insert(map[string]interface{}{
+		"created_at": Expr("NOW()"),
+		"name":       "a",
+	}).Build()
+	if query != "INSERT INTO `item`(`created_at`,`name`) VALUES (NOW(),?);" || len(values) != 1 || values[0] != "a" {
+		t.Fatalf("insert did not write expr: %s %v", query, values)
+	}
+
 	stmt, value := buildConditionStatement(Condition{Operator: "=", Key: "a", Value: Expr("lower(`b`)")})
 	if !strings.HasSuffix(stmt, "lower(`b`)") || value != nil {
 		t.Fatalf("condition did not write expr: %s %v", stmt, value)
@@ -199,5 +207,12 @@ func TestColumnsAreSortedWhenNoneGiven(t *testing.T) {
 		if query != "INSERT INTO `item`(`a`,`b`) VALUES (?,?);" {
 			t.Fatalf("unexpected insert: %s", query)
 		}
+	}
+}
+
+func TestInsertWritesNullColumn(t *testing.T) {
+	query, values := New().From("`item`").Insert(map[string]interface{}{"a": 1, "b": nil}).Build()
+	if query != "INSERT INTO `item`(`a`,`b`) VALUES (?,NULL);" || len(values) != 1 || values[0] != 1 {
+		t.Fatalf("got %s %v", query, values)
 	}
 }
