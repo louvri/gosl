@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -10,6 +11,32 @@ import (
 )
 
 type Scanner func(args ...interface{}) error
+
+var identifier = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+
+// quoteColumn backticks a column name, optionally prefixed by a table alias,
+// and reports false when it is anything other than plain identifiers.
+func quoteColumn(column string) (string, bool) {
+	parts := strings.Split(strings.ReplaceAll(column, "`", ""), ".")
+	if len(parts) > 2 {
+		return "", false
+	}
+	for i, part := range parts {
+		if !identifier.MatchString(part) {
+			return "", false
+		}
+		parts[i] = "`" + part + "`"
+	}
+	return strings.Join(parts, "."), true
+}
+
+// orderDirection returns ASC or DESC; anything else falls back to ASC.
+func orderDirection(direction string) string {
+	if strings.EqualFold(strings.TrimSpace(direction), "desc") {
+		return "DESC"
+	}
+	return "ASC"
+}
 
 func ResolveColumnName(column string) string {
 	var builder strings.Builder
